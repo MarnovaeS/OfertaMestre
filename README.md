@@ -1,10 +1,10 @@
-# OfertaMestre
+﻿# OfertaMestre
 
-OfertaMestre e uma plataforma de inteligencia para promocoes. A fundacao atual entrega monorepo, backend FastAPI, frontend React/Vite, PostgreSQL, Alembic, autenticacao JWT, Docker Compose e CI.
+OfertaMestre e uma plataforma de inteligencia para promocoes. A base atual entrega monorepo, backend FastAPI, frontend React/Vite, PostgreSQL, Alembic, autenticacao JWT, Docker Compose, CI e a fundacao do dominio comercial.
 
 ## Estado Atual
 
-Esta base corresponde a Sprint 0 + Sprint 0.1 e a revisao arquitetural da fundacao.
+Esta base corresponde a Sprint 0, Sprint 0.1 e Sprint 0.2.
 
 Incluido:
 
@@ -15,17 +15,19 @@ Incluido:
 - Autenticacao JWT no backend.
 - Frontend React + Vite + TypeScript.
 - Dashboard inicial com metricas zeradas.
+- Dominio comercial administrativo: marcas, categorias, lojas, vendedores, produtos, ofertas e snapshots de preco.
 - GitHub Actions.
-- Testes basicos.
+- Testes automatizados basicos.
 
 Nao incluido ainda:
 
 - Scrapers.
+- Integracoes Amazon, Mercado Livre, Steam ou outras APIs comerciais.
 - IA.
-- Historico de precos.
 - Notificacoes.
 - Watchlist.
 - Dashboard com dados reais.
+- Score de promocao, cupons ou cashback.
 
 ## Pre-requisitos
 
@@ -62,7 +64,7 @@ Servicos:
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
 - Healthcheck: http://localhost:8000/health
-- OpenAPI/Swagger: http://localhost:8000/docs
+- Swagger: http://localhost:8000/docs
 - OpenAPI JSON: http://localhost:8000/openapi.json
 - PostgreSQL: localhost:5432
 
@@ -88,6 +90,7 @@ Variaveis principais:
 ```bash
 cd backend
 python -m pip install -r requirements-dev.txt
+python -m alembic upgrade head
 python -m pytest
 ```
 
@@ -95,6 +98,13 @@ Para iniciar a API localmente, configure `DATABASE_URL` e `SECRET_KEY`, depois e
 
 ```bash
 uvicorn app.main:app --reload
+```
+
+Seed idempotente das lojas iniciais:
+
+```bash
+cd backend
+python -m app.seed
 ```
 
 ## Como Executar o Frontend Localmente
@@ -118,6 +128,21 @@ npm run build
 - `POST /api/v1/auth/login`
 - `GET /api/v1/auth/me`
 - `GET /api/v1/dashboard/summary`
+- `GET|POST /api/v1/brands`
+- `GET|PATCH|DELETE /api/v1/brands/{brand_id}`
+- `GET|POST /api/v1/categories`
+- `GET|PATCH|DELETE /api/v1/categories/{category_id}`
+- `GET|POST /api/v1/stores`
+- `GET|PATCH|DELETE /api/v1/stores/{store_id}`
+- `GET|POST /api/v1/sellers`
+- `GET|PATCH|DELETE /api/v1/sellers/{seller_id}`
+- `GET|POST /api/v1/products`
+- `GET|PATCH|DELETE /api/v1/products/{product_id}`
+- `GET|POST /api/v1/offers`
+- `GET|PATCH|DELETE /api/v1/offers/{offer_id}`
+- `GET|POST /api/v1/offers/{offer_id}/price-history`
+
+Rotas `GET` de dominio sao publicas. Rotas administrativas `POST`, `PATCH` e `DELETE` exigem JWT.
 
 ## Testes
 

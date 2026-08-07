@@ -1,4 +1,4 @@
-# Architecture Decisions
+﻿# Architecture Decisions
 
 ## Sprint 0
 
@@ -10,9 +10,19 @@
 - Run Alembic migrations when the backend container starts so `docker compose up` is enough for local bootstrapping.
 - Serve the built frontend through Nginx in Docker while keeping Vite available for local development.
 
+## Sprint 0.2
+
+- Keep the system as a modular monolith.
+- Model `Product` as the conceptual product without price.
+- Model `ProductOffer` as the commercial offer that owns current administrative price fields.
+- Model `PriceSnapshot` as immutable price history per offer.
+- Protect write routes with JWT while keeping read routes public.
+- Avoid database features exclusive to PostgreSQL so tests can keep using SQLite.
+- Provide seed as an explicit idempotent command, not automatic startup behavior.
+
 ## Deferred
 
-- Scrapers are intentionally deferred to Sprint 1.
-- AI scoring is intentionally deferred to Sprint 2.
+- Scrapers are intentionally deferred.
+- External marketplace APIs are intentionally deferred.
+- AI scoring is intentionally deferred.
 - Watchlists, alerts and notification delivery are intentionally deferred to later sprints.
-

@@ -1,15 +1,15 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, dashboard, health
+from app.api.routes import auth, brands, categories, dashboard, health, offers, products, sellers, stores
 from app.core.config import settings
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="OfertaMestre API",
-        description="Sprint 0 foundation API for OfertaMestre.",
-        version="0.1.0",
+        description="Domain foundation API for OfertaMestre.",
+        version="0.2.0",
     )
 
     app.add_middleware(
@@ -23,9 +23,14 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
+    app.include_router(brands.router, prefix="/api/v1/brands", tags=["brands"])
+    app.include_router(categories.router, prefix="/api/v1/categories", tags=["categories"])
+    app.include_router(stores.router, prefix="/api/v1/stores", tags=["stores"])
+    app.include_router(sellers.router, prefix="/api/v1/sellers", tags=["sellers"])
+    app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
+    app.include_router(offers.router, prefix="/api/v1/offers", tags=["offers"])
 
     return app
 
 
 app = create_app()
-
