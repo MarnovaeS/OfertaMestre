@@ -12,6 +12,7 @@ A OpenAPI e gerada automaticamente pelo FastAPI.
 - Listagens de dominio aceitam paginacao simples com `limit` e `offset`.
 - Leituras de dominio sao publicas.
 - Criacao, alteracao e exclusao exigem JWT Bearer.
+- Rotas em `/api/v1/internal` sao internas e autenticadas.
 
 ## Infraestrutura
 
@@ -93,7 +94,25 @@ Retorna metricas zeradas enquanto o dashboard real permanece fora do escopo.
 
 `ProductOffer` representa uma oferta concreta de um produto em uma loja/vendedor. Cada oferta possui historico proprio em `PriceSnapshot`.
 
+## Ingestao Interna
+
+### `POST /api/v1/internal/ingestion/offers`
+
+Endpoint autenticado e interno para collectors futuros enviarem `ExternalOfferInput`.
+
+Retorna `IngestionResult` com:
+
+- `product_id`
+- `offer_id`
+- `seller_id`
+- `product_created`
+- `offer_created`
+- `seller_created`
+- `snapshot_created`
+- `matched_by`
+
+Este endpoint nao e publico para usuarios finais e nao executa coleta externa.
+
 ## Fora do Escopo Atual
 
-Nao ha endpoints de scraping, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.
-
+Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.

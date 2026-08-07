@@ -1,6 +1,6 @@
 ﻿# Dominio Comercial
 
-Este documento descreve a fundacao de dominio criada na Sprint 0.2.
+Este documento descreve a fundacao de dominio criada na Sprint 0.2 e consumida pela ingestao da Sprint 0.3.
 
 ## Principio Central
 
@@ -24,7 +24,7 @@ Product: Galaxy Watch Ultra
 
 ## Brand
 
-Representa uma marca, como Samsung, Apple, Acer ou Nike.
+Representa uma marca, como Samsung, Apple, Acer ou Nike. A ingestao pode criar brand quando receber `brand_name`.
 
 Campos principais:
 
@@ -42,7 +42,7 @@ Regras:
 
 ## Category
 
-Representa uma categoria de produto. Pode ter uma categoria pai.
+Representa uma categoria de produto. Pode ter uma categoria pai. A ingestao cria categoria apenas quando recebe `category_name`.
 
 Exemplo:
 
@@ -66,7 +66,7 @@ Campos principais:
 
 ## Store
 
-Representa a plataforma ou loja monitorada, nao necessariamente o vendedor.
+Representa a plataforma ou loja monitorada, nao necessariamente o vendedor. A ingestao exige `store_slug` existente e nao cria lojas automaticamente.
 
 Exemplos:
 
@@ -88,7 +88,7 @@ Campos principais:
 
 ## Seller
 
-Representa o vendedor de uma oferta dentro de uma `Store`.
+Representa o vendedor de uma oferta dentro de uma `Store`. A ingestao localiza ou cria seller sempre dentro da store correta.
 
 Exemplo:
 
@@ -138,6 +138,13 @@ Relacionamentos:
 - `Category 1:N Product`
 - `Product 1:N ProductOffer`
 
+Matching de ingestao:
+
+1. GTIN exato.
+2. SKU + marca.
+3. Marca + modelo.
+4. Nome normalizado como fallback controlado.
+
 ## ProductOffer
 
 Representa uma oferta concreta de um produto em uma loja e, opcionalmente, em um vendedor.
@@ -169,6 +176,7 @@ Regras:
 - `store_id + external_id` e unico.
 - Precos nao podem ser negativos.
 - `currency` inicia como `BRL`.
+- A ingestao cria ou atualiza por `store_id + external_id`.
 
 ## PriceSnapshot
 
@@ -188,7 +196,8 @@ Regras:
 - Snapshots antigos nao devem ser atualizados.
 - Cada oferta tem seu proprio historico.
 - Consultas de historico sao ordenadas por `captured_at`.
+- A ingestao evita snapshot duplicado quando os precos nao mudaram.
 
 ## Fora do Escopo
 
-Esta fundacao nao executa coletas externas. Nao ha scraping, IA, notificacoes, watchlist, score de promocao, cupons, cashback ou dashboard real nesta sprint.
+Esta fundacao nao executa coletas externas. Nao ha scraping, browser automation, filas, IA, notificacoes, watchlist, score de promocao, cupons, cashback ou dashboard real nesta sprint.

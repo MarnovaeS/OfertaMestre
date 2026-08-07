@@ -20,9 +20,22 @@
 - Avoid database features exclusive to PostgreSQL so tests can keep using SQLite.
 - Provide seed as an explicit idempotent command, not automatic startup behavior.
 
+## Sprint 0.3
+
+- Add ingestion as an internal backend module, not a microservice.
+- Keep collectors out of scope; ingestion receives normalized external inputs through an internal authenticated endpoint.
+- Keep marketplace-specific logic out of the domain.
+- Use deterministic normalization and conservative matching only.
+- Make ingestion atomic with one commit at the end and rollback on failure.
+- Create price snapshots only when relevant price fields change.
+- Do not automatically reassign an existing offer to another product; product-offer reconciliation is deferred.
+- Add basic structured logging without secrets.
+
 ## Deferred
 
 - Scrapers are intentionally deferred.
 - External marketplace APIs are intentionally deferred.
+- Browser automation is intentionally deferred.
+- Queues, Redis, Celery and schedulers are intentionally deferred.
 - AI scoring is intentionally deferred.
 - Watchlists, alerts and notification delivery are intentionally deferred to later sprints.

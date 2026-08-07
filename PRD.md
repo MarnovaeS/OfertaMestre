@@ -9,6 +9,7 @@ Criar uma plataforma SaaS de inteligencia para promocoes que identifica oportuni
 - Monitorar precos em multiplas lojas.
 - Construir historico por oferta.
 - Separar produto conceitual de oferta comercial.
+- Receber ofertas externas por uma camada generica de ingestao.
 - Classificar promocoes em sprint futura.
 - Alertar apenas ofertas realmente vantajosas em sprint futura.
 - Evoluir para um produto comercial.
@@ -23,12 +24,15 @@ Criar uma plataforma SaaS de inteligencia para promocoes que identifica oportuni
 
 ## Estado Atual
 
-A fundacao da Sprint 0.2 esta implementada. Existem backend FastAPI, frontend React/Vite, PostgreSQL via Docker Compose, Alembic, autenticacao JWT, endpoint de health, dashboard inicial com metricas zeradas e dominio comercial administrativo para marcas, categorias, lojas, vendedores, produtos, ofertas e snapshots de preco.
+A fundacao da Sprint 0.3 esta implementada. Existem backend FastAPI, frontend React/Vite, PostgreSQL via Docker Compose, Alembic, autenticacao JWT, endpoint de health, dashboard inicial com metricas zeradas, dominio comercial administrativo e camada interna de ingestao para ofertas externas futuras.
 
-## Escopo Fora da Sprint 0.2
+## Escopo Fora da Sprint 0.3
 
 - Scrapers.
+- Browser automation.
 - Integracoes Amazon, Mercado Livre, Steam ou APIs externas de lojas.
+- Filas, Redis ou Celery.
+- APScheduler.
 - Motor de IA.
 - Notificacoes.
 - Watchlist.
