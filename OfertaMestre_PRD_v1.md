@@ -1,191 +1,169 @@
-# OfertaMestre --- PRD v1.0
+# OfertaMestre - PRD v1.0
 
-## Visão
+## Visao
 
-**OfertaMestre** é uma plataforma de inteligência para promoções. O
-objetivo não é apenas monitorar preços, mas identificar **o momento
-certo para comprar**, utilizando histórico de preços, IA e regras de
-negócio.
+**OfertaMestre** e uma plataforma de inteligencia para promocoes. O objetivo nao e apenas monitorar precos, mas identificar o momento certo para comprar utilizando historico de precos, IA e regras de negocio.
 
-### Objetivos
+## Objetivos
 
--   Monitorar lojas online.
--   Construir histórico de preços.
--   Classificar promoções.
--   Enviar alertas apenas para oportunidades realmente vantajosas.
--   Evoluir para um SaaS.
+- Monitorar lojas online.
+- Construir historico de precos.
+- Classificar promocoes.
+- Enviar alertas apenas para oportunidades realmente vantajosas.
+- Evoluir para um SaaS.
 
-## Público-alvo
+## Publico-alvo
 
-Consumidores que desejam comprar melhor e evitar falsas promoções.
+Consumidores que desejam comprar melhor e evitar falsas promocoes.
 
-## Stack
+## Stack Planejada
 
 ### Backend
 
--   Python 3.13
--   FastAPI
--   SQLAlchemy 2
--   Alembic
--   APScheduler
--   PostgreSQL
--   Pydantic
+- Python 3.13
+- FastAPI
+- SQLAlchemy 2
+- Alembic
+- PostgreSQL
+- Pydantic
+- APScheduler, planejado para rotinas futuras
 
 ### Frontend
 
--   React
--   Vite
--   TypeScript
--   Tailwind CSS
--   TanStack Query
--   React Router
--   Chart.js
+- React
+- Vite
+- TypeScript
+- Tailwind CSS, planejado
+- TanStack Query, planejado
+- React Router, planejado
+- Chart.js, planejado
 
 ### Infraestrutura
 
--   Docker
--   Docker Compose
--   Nginx
--   GitHub
--   Hostinger VPS
+- Docker
+- Docker Compose
+- Nginx para servir o frontend em container
+- GitHub Actions
+- Hostinger VPS, planejado
 
-## Estrutura
+## Estrutura Atual
 
-    ofertamestre/
-    ├── backend/
-    ├── frontend/
-    ├── docs/
-    ├── docker-compose.yml
-    ├── .env.example
-    └── README.md
+```text
+ofertamestre/
+├── backend/
+├── frontend/
+├── docs/
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
 
 ## Funcionalidades
 
-### Sprint 0
+### Sprint 0 - Implementada
 
--   Estrutura do projeto
--   Docker
--   Banco PostgreSQL
--   FastAPI
--   React
--   Login JWT
--   Dashboard inicial
--   CI/CD GitHub Actions
+- Estrutura do projeto.
+- Docker Compose.
+- Banco PostgreSQL.
+- FastAPI.
+- React + Vite + TypeScript.
+- Login JWT no backend.
+- Dashboard inicial com metricas zeradas.
+- CI GitHub Actions.
 
-### Sprint 1
+### Sprint 0.1 - Consolidacao
 
--   Histórico de preços
--   Coletor Mercado Livre
--   Coletor Amazon
--   Coletor Steam
+- Corrigir documentacao e encoding.
+- Alinhar endpoints documentados com `/api/v1`.
+- Criar pastas base para evolucao futura sem mover codigo.
+- Fixar versoes de dependencias.
+- Validar testes e build.
 
-### Sprint 2
+### Sprint 1 - Planejada
 
--   Classificação por IA
--   Favoritos
--   Busca
--   Painel de promoções
+- Historico de precos.
+- Coletor Mercado Livre.
+- Coletor Amazon.
+- Coletor Steam.
 
-### Sprint 3
+### Sprint 2 - Planejada
 
--   Integração WhatsApp (via Make)
--   Telegram
--   Email
+- Classificacao por IA.
+- Favoritos.
+- Busca.
+- Painel de promocoes.
 
-### Sprint 4
+### Sprint 3 - Planejada
 
-Adicionar: - KaBuM - Magazine Luiza - Casas Bahia - Samsung - Acer -
-Shopee - Nike - Centauro - Netshoes - Dafiti
+- Integracao WhatsApp via Make.
+- Telegram.
+- Email.
 
-## Categorias monitoradas
+### Sprint 4 - Planejada
 
--   Eletrônicos
--   Informática
--   Celulares
--   Smartwatch
--   Videogames
--   Ferramentas
--   Tênis
--   Fones de ouvido
--   Bebidas
--   Eletrodomésticos
+- KaBuM.
+- Magazine Luiza.
+- Casas Bahia.
+- Samsung.
+- Acer.
+- Shopee.
+- Nike.
+- Centauro.
+- Netshoes.
+- Dafiti.
 
-## Modelo de dados inicial
+## Modelo de Dados Planejado
 
-Tabelas: - users - stores - categories - products - prices - alerts -
-watchlists
+Tabelas planejadas:
 
-## Motor de IA
+- users
+- stores
+- categories
+- products
+- prices
+- alerts
+- watchlists
 
-Cada promoção receberá: - Nota de 0 a 100 - Motivo da classificação -
-Recomendação: - Comprar agora - Aguardar
+Tabela implementada atualmente:
 
-Critérios: - Histórico - Desconto real - Frete - Cupom - Cashback -
-Reputação do vendedor - Sazonalidade
+- users
 
-## Dashboard
+## Motor de IA Planejado
 
-Indicadores: - Promoções hoje - Promoções excelentes - Produtos
-monitorados - Alertas enviados - Lojas online
+Cada promocao recebera:
 
-## Notificações
+- Nota de 0 a 100.
+- Motivo da classificacao.
+- Recomendacao: comprar agora, aguardar ou nao recomendado.
 
-Primeira versão: - WhatsApp (Make)
+Criterios planejados:
 
-Depois: - Telegram - Discord - Email
+- Historico.
+- Desconto real.
+- Frete.
+- Cupom.
+- Cashback.
+- Reputacao do vendedor.
+- Sazonalidade.
 
-## Requisitos de arquitetura
+## Dashboard Atual
 
--   Código limpo
--   Testes
--   Tipagem
--   API REST
--   Modularização por loja
--   Fácil expansão
+Indicadores expostos pelo backend em `GET /api/v1/dashboard/summary`:
 
-## Organização do backend
+- Promocoes hoje.
+- Promocoes excelentes.
+- Produtos monitorados.
+- Alertas enviados.
+- Lojas online.
 
-    app/
-     api/
-     ai/
-     core/
-     database/
-     models/
-     notifications/
-     scrapers/
-     services/
+Na Sprint 0, todos os valores retornam `0` porque a ingestao de dados ainda nao existe.
 
-## Organização dos scrapers
+## Diretrizes
 
-Um arquivo por loja:
-
--   amazon.py
--   mercadolivre.py
--   steam.py
--   kabum.py
--   samsung.py ...
-
-Sempre que possível utilizar APIs oficiais ou fontes permitidas. Evitar
-scraping agressivo.
-
-## Deploy
-
-Destino: Hostinger VPS
-
-Usar: - Docker Compose - Nginx - HTTPS - PostgreSQL
-
-## Diretrizes para o Codex
-
-1.  Trabalhar em pequenas entregas.
-2.  Criar testes para novas funcionalidades.
-3.  Manter arquitetura limpa.
-4.  Documentar decisões importantes.
-5.  Abrir PR por sprint.
-6.  Não adicionar dependências sem justificativa.
-7.  Priorizar código legível e manutenível.
-
-## Meta do MVP
-
-Entregar uma aplicação funcional capaz de: - Monitorar Amazon, Mercado
-Livre e Steam. - Armazenar histórico de preços. - Classificar
-promoções. - Exibir dashboard. - Enviar alertas via Make/WhatsApp.
+1. Trabalhar em pequenas entregas.
+2. Criar testes para novas funcionalidades.
+3. Manter arquitetura limpa.
+4. Documentar decisoes importantes.
+5. Abrir PR por sprint.
+6. Nao adicionar dependencias sem justificativa.
+7. Priorizar codigo legivel e manutenivel.

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://ofertamestre:ofertamestre@db:5432/ofertamestre"
+    database_url: str
     secret_key: str = Field(min_length=32)
     algorithm: str = "HS256"
     access_token_expire_minutes: int = Field(default=60, ge=5, le=1440)
@@ -25,7 +25,11 @@ class Settings(BaseSettings):
     @field_validator("secret_key")
     @classmethod
     def reject_insecure_secret(cls, value: str) -> str:
-        blocked_values = {"change-me-in-production", "test-secret"}
+        blocked_values = {
+            "change-me-in-production",
+            "test-secret",
+            "dev-only-secret-key-change-before-production",
+        }
         if value in blocked_values:
             raise ValueError("SECRET_KEY must be changed to a strong random value")
         return value

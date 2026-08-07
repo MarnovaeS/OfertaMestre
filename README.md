@@ -1,72 +1,117 @@
 # OfertaMestre
 
-OfertaMestre is a promotion intelligence platform. Sprint 0 delivers the project foundation: monorepo, FastAPI backend, React dashboard, PostgreSQL, Alembic, JWT authentication, Docker Compose and CI.
+OfertaMestre e uma plataforma de inteligencia para promocoes. A fundacao atual entrega monorepo, backend FastAPI, frontend React/Vite, PostgreSQL, Alembic, autenticacao JWT, Docker Compose e CI.
 
-## Stack
+## Estado Atual
 
-- Backend: Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL, JWT
-- Frontend: React, Vite, TypeScript
-- Infra: Docker Compose, PostgreSQL, Nginx for the frontend container
-- Quality: Pytest, GitHub Actions
+Esta base corresponde a Sprint 0 + Sprint 0.1 e a revisao arquitetural da fundacao.
 
-## Run Locally
+Incluido:
 
-```bash
-docker compose up
+- Backend FastAPI.
+- PostgreSQL via Docker Compose.
+- SQLAlchemy 2.
+- Alembic.
+- Autenticacao JWT no backend.
+- Frontend React + Vite + TypeScript.
+- Dashboard inicial com metricas zeradas.
+- GitHub Actions.
+- Testes basicos.
+
+Nao incluido ainda:
+
+- Scrapers.
+- IA.
+- Historico de precos.
+- Notificacoes.
+- Watchlist.
+- Dashboard com dados reais.
+
+## Pre-requisitos
+
+Para executar com Docker:
+
+- Docker Desktop instalado e em execucao.
+- Comando `docker` disponivel no terminal.
+
+Para executar localmente sem Docker:
+
+- Python 3.13.
+- Node.js 22 ou superior.
+- npm.
+- PostgreSQL, caso nao use o banco do Docker.
+
+## Como Executar com Docker
+
+1. Crie o arquivo `.env` a partir do exemplo:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-Services:
+2. Revise `POSTGRES_PASSWORD`, `DATABASE_URL` e `SECRET_KEY` no `.env`.
+
+3. Suba a aplicacao:
+
+```bash
+docker compose up --build
+```
+
+Servicos:
 
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
-- OpenAPI: http://localhost:8000/docs
+- Healthcheck: http://localhost:8000/health
+- OpenAPI/Swagger: http://localhost:8000/docs
+- OpenAPI JSON: http://localhost:8000/openapi.json
 - PostgreSQL: localhost:5432
 
-The backend runs Alembic migrations automatically before starting the API.
+O backend executa `alembic upgrade head` antes de iniciar a API.
 
-## Environment
+## Variaveis de Ambiente
 
-Copy `.env.example` to `.env` when you need custom local values. Docker Compose already includes safe development defaults.
+Variaveis principais:
 
-Important variables:
-
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
 - `DATABASE_URL`
-- `SECRET_KEY`: must be at least 32 characters and changed outside development
+- `SECRET_KEY`
 - `ACCESS_TOKEN_EXPIRE_MINUTES`
 - `BACKEND_CORS_ORIGINS`
 - `VITE_API_URL`
 
-## Sprint 0 Scope
+`SECRET_KEY` deve ter pelo menos 32 caracteres e deve ser trocada fora do ambiente local. O backend nao define valor padrao para `DATABASE_URL` ou `SECRET_KEY`.
 
-Included:
+## Como Executar o Backend Localmente
 
-- Project structure
-- Docker Compose
-- PostgreSQL
-- FastAPI
-- React + Vite + TypeScript
-- JWT login/register
-- Initial dashboard summary
-- Alembic migrations
-- Basic tests
-- GitHub Actions
+```bash
+cd backend
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
 
-Not included yet:
+Para iniciar a API localmente, configure `DATABASE_URL` e `SECRET_KEY`, depois execute:
 
-- Scrapers
-- Price history ingestion
-- AI scoring engine
-- Watchlists and alerts workflow
-- External notification integrations
+```bash
+uvicorn app.main:app --reload
+```
 
-## API
+## Como Executar o Frontend Localmente
 
-FastAPI generates OpenAPI automatically:
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-- Swagger UI: `/docs`
-- OpenAPI JSON: `/openapi.json`
+Build de producao:
 
-Current Sprint 0 endpoints:
+```bash
+npm run build
+```
+
+## Endpoints Implementados
 
 - `GET /health`
 - `POST /api/v1/auth/register`
@@ -74,3 +119,23 @@ Current Sprint 0 endpoints:
 - `GET /api/v1/auth/me`
 - `GET /api/v1/dashboard/summary`
 
+## Testes
+
+Backend:
+
+```bash
+cd backend
+python -m pytest
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+## Branch Principal
+
+A branch principal do projeto e `main`.

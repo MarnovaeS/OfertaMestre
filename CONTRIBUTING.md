@@ -1,8 +1,10 @@
-# Padrões
+# Padroes de Contribuicao
 
--   Conventional Commits.
--   Branch por feature.
--   Pull Request obrigatório.
--   Cobertura de testes para novas funcionalidades.
--   Tipagem obrigatória.
--   Código documentado quando necessário.
+- Usar Conventional Commits.
+- Trabalhar em branch por feature.
+- Abrir Pull Request para alteracoes relevantes.
+- Criar cobertura de testes para novas funcionalidades.
+- Manter tipagem obrigatoria.
+- Documentar decisoes importantes quando necessario.
+- Nao adicionar dependencias sem justificativa.
+- Manter a branch principal como `main`.

@@ -1,19 +1,43 @@
 # API
 
-GET /health
+A OpenAPI e gerada automaticamente pelo FastAPI.
 
-POST /auth/login POST /auth/register
+- Swagger UI: `GET /docs`
+- OpenAPI JSON: `GET /openapi.json`
 
-GET /stores GET /categories
+## Endpoints Implementados
 
-GET /products GET /products/{id}
+### Infraestrutura
 
-GET /prices/history/{product_id}
+- `GET /health`
 
-GET /deals
+Resposta:
 
-POST /watchlists
+```json
+{
+  "status": "ok"
+}
+```
 
-GET /alerts
+### Autenticacao
 
-OpenAPI deverá ser mantida atualizada automaticamente pelo FastAPI.
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`
+
+### Dashboard
+
+- `GET /api/v1/dashboard/summary`
+
+## Endpoints Planejados
+
+Os endpoints abaixo pertencem a sprints futuras e ainda nao estao implementados:
+
+- `GET /api/v1/stores`
+- `GET /api/v1/categories`
+- `GET /api/v1/products`
+- `GET /api/v1/products/{id}`
+- `GET /api/v1/prices/history/{product_id}`
+- `GET /api/v1/deals`
+- `POST /api/v1/watchlists`
+- `GET /api/v1/alerts`

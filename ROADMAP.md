@@ -1,22 +1,31 @@
 # Roadmap
 
-## Sprint 0
+## Sprint 0 - Implementada
 
-Fundação, Docker, Login, Dashboard.
+Fundacao, Docker, login JWT no backend e dashboard inicial.
 
-## Sprint 1
+## Sprint 0.1 - Atual
 
-Amazon, Mercado Livre, Steam, histórico.
+Consolidacao da fundacao:
 
-## Sprint 2
+- Corrigir documentacao e encoding.
+- Alinhar endpoints com `/api/v1`.
+- Criar pastas base para evolucao futura.
+- Fixar dependencias.
+- Validar testes e build.
 
-Motor IA, favoritos, busca.
+## Sprint 1 - Planejada
 
-## Sprint 3
+Amazon, Mercado Livre, Steam e historico de precos.
 
-WhatsApp (Make), Telegram, Email.
+## Sprint 2 - Planejada
 
-## Sprint 4
+Motor IA, favoritos, busca e painel de promocoes.
 
-KaBuM!, Magazine Luiza, Casas Bahia, Samsung, Acer, Shopee, Nike,
-Centauro, Netshoes, Dafiti.
+## Sprint 3 - Planejada
+
+WhatsApp via Make, Telegram e Email.
+
+## Sprint 4 - Planejada
+
+KaBuM, Magazine Luiza, Casas Bahia, Samsung, Acer, Shopee, Nike, Centauro, Netshoes e Dafiti.
