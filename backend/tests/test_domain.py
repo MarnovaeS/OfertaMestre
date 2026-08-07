@@ -208,3 +208,121 @@ def test_pagination(client):
 
     assert response.status_code == 200
     assert len(response.json()) == 2
+
+
+def test_create_offer_with_missing_product_returns_404(client):
+    headers = auth_headers(client)
+    store = create_store(client, headers)
+
+    response = client.post(
+        "/api/v1/offers",
+        json={
+            "product_id": 999,
+            "store_id": store["id"],
+            "external_id": "missing-product",
+            "url": "https://example.com/missing-product",
+            "title": "Missing product",
+            "current_price": "2199.00",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+
+def test_create_offer_with_missing_store_returns_404(client):
+    headers = auth_headers(client)
+    product = create_product(client, headers)
+
+    response = client.post(
+        "/api/v1/offers",
+        json={
+            "product_id": product["id"],
+            "store_id": 999,
+            "external_id": "missing-store",
+            "url": "https://example.com/missing-store",
+            "title": "Missing store",
+            "current_price": "2199.00",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Store not found"
+
+
+def test_create_offer_with_missing_seller_returns_404(client):
+    headers = auth_headers(client)
+    store = create_store(client, headers)
+    product = create_product(client, headers)
+
+    response = client.post(
+        "/api/v1/offers",
+        json={
+            "product_id": product["id"],
+            "store_id": store["id"],
+            "seller_id": 999,
+            "external_id": "missing-seller",
+            "url": "https://example.com/missing-seller",
+            "title": "Missing seller",
+            "current_price": "2199.00",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Seller not found"
+
+
+def test_create_offer_with_seller_from_another_store_returns_409(client):
+    headers = auth_headers(client)
+    store = create_store(client, headers)
+    other_store = create_store(client, headers, slug="mercado-livre")
+    product = create_product(client, headers)
+    seller_response = client.post(
+        "/api/v1/sellers",
+        json={"store_id": other_store["id"], "name": "Samsung Oficial", "external_id": "seller-other"},
+        headers=headers,
+    )
+    assert seller_response.status_code == 201
+
+    response = client.post(
+        "/api/v1/offers",
+        json={
+            "product_id": product["id"],
+            "store_id": store["id"],
+            "seller_id": seller_response.json()["id"],
+            "external_id": "wrong-store-seller",
+            "url": "https://example.com/wrong-store-seller",
+            "title": "Wrong store seller",
+            "current_price": "2199.00",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Seller does not belong to the offer store"
+
+
+def test_update_offer_with_incompatible_seller_store_returns_409(client):
+    headers = auth_headers(client)
+    store = create_store(client, headers)
+    other_store = create_store(client, headers, slug="mercado-livre")
+    product = create_product(client, headers)
+    offer = create_offer(client, headers, product["id"], store["id"])
+    seller_response = client.post(
+        "/api/v1/sellers",
+        json={"store_id": other_store["id"], "name": "Samsung Oficial", "external_id": "seller-other"},
+        headers=headers,
+    )
+    assert seller_response.status_code == 201
+
+    response = client.patch(
+        f"/api/v1/offers/{offer['id']}",
+        json={"seller_id": seller_response.json()["id"]},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Seller does not belong to the offer store"

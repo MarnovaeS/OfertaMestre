@@ -89,10 +89,11 @@ Retorna metricas zeradas enquanto o dashboard real permanece fora do escopo.
 - `PATCH /api/v1/offers/{offer_id}`
 - `DELETE /api/v1/offers/{offer_id}`
 - `GET /api/v1/offers/{offer_id}/price-history`
-- `POST /api/v1/offers/{offer_id}/price-history`
+- `POST /api/v1/offers/{offer_id}/price-history` - endpoint administrativo/interno nesta fase
 
 `ProductOffer` representa uma oferta concreta de um produto em uma loja/vendedor. Cada oferta possui historico proprio em `PriceSnapshot`.
 
 ## Fora do Escopo Atual
 
 Nao ha endpoints de scraping, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.
+
