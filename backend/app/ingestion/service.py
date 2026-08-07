@@ -48,11 +48,10 @@ def ingest_external_offer(db: Session, payload: ExternalOfferInput) -> Ingestion
 
 def _ingest_external_offer(db: Session, payload: ExternalOfferInput) -> IngestionResult:
     store = _get_store(db, payload.store_slug)
-    brand = _get_or_create_brand(db, payload.brand_name)
-    category = _get_or_create_category(db, payload.category_name)
+    existing_offer = _get_existing_offer(db, store.id, payload.external_id)
     seller, seller_created = _get_or_create_seller(db, store, payload)
-    product, product_created, matched_by = _get_or_create_product(db, payload, brand, category)
-    offer, offer_created = _get_or_create_offer(db, payload, product, store, seller)
+    product, product_created, matched_by = _resolve_product(db, payload, existing_offer)
+    offer, offer_created = _get_or_create_offer(db, payload, product, store, seller, existing_offer)
     snapshot_created = _create_snapshot_if_needed(db, offer, payload)
 
     return IngestionResult(
@@ -72,6 +71,18 @@ def _get_store(db: Session, store_slug: str) -> Store:
     if store is None:
         raise DomainNotFoundError("Store not found")
     return store
+
+
+def _get_existing_offer(db: Session, store_id: int, external_id: str) -> ProductOffer | None:
+    return db.scalars(
+        select(ProductOffer).where(ProductOffer.store_id == store_id, ProductOffer.external_id == external_id)
+    ).first()
+
+
+def _get_existing_brand(db: Session, brand_name: str | None) -> Brand | None:
+    if brand_name is None:
+        return None
+    return db.scalars(select(Brand).where(Brand.slug == normalize_slug(brand_name))).first()
 
 
 def _get_or_create_brand(db: Session, brand_name: str | None) -> Brand | None:
@@ -127,23 +138,31 @@ def _get_or_create_seller(db: Session, store: Store, payload: ExternalOfferInput
     return seller, True
 
 
-def _get_or_create_product(
+def _resolve_product(
     db: Session,
     payload: ExternalOfferInput,
-    brand: Brand | None,
-    category: Category | None,
+    existing_offer: ProductOffer | None,
 ) -> tuple[Product, bool, str]:
+    existing_brand = _get_existing_brand(db, payload.brand_name)
     product_match = match_product(
         db,
         product_name=payload.product_name,
-        brand=brand,
+        brand=existing_brand,
         model=payload.model,
         gtin=payload.gtin,
         sku=payload.sku,
     )
+
+    if existing_offer is not None:
+        if product_match.product is not None and product_match.product.id != existing_offer.product_id:
+            raise DomainConflictError("Existing offer is linked to a different product")
+        return existing_offer.product, False, product_match.matched_by
+
     if product_match.product is not None:
         return product_match.product, False, product_match.matched_by
 
+    brand = _get_or_create_brand(db, payload.brand_name)
+    category = _get_or_create_category(db, payload.category_name)
     product = Product(
         brand_id=brand.id if brand else None,
         category_id=category.id if category else None,
@@ -176,11 +195,9 @@ def _get_or_create_offer(
     product: Product,
     store: Store,
     seller: Seller | None,
+    existing_offer: ProductOffer | None,
 ) -> tuple[ProductOffer, bool]:
-    offer = db.scalars(
-        select(ProductOffer).where(ProductOffer.store_id == store.id, ProductOffer.external_id == payload.external_id)
-    ).first()
-    if offer is None:
+    if existing_offer is None:
         offer = ProductOffer(
             product_id=product.id,
             store_id=store.id,
@@ -203,7 +220,7 @@ def _get_or_create_offer(
         db.flush()
         return offer, True
 
-    offer.product_id = product.id
+    offer = existing_offer
     offer.seller_id = seller.id if seller else None
     offer.url = payload.url
     offer.title = payload.title

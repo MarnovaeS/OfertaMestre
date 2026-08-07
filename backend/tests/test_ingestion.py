@@ -2,6 +2,7 @@
 
 from app.database.session import SessionLocal
 from app.models.brand import Brand
+from app.models.category import Category
 from app.models.price_snapshot import PriceSnapshot
 from app.models.product import Product
 from app.models.product_offer import ProductOffer
@@ -277,3 +278,101 @@ def test_duplicate_offer_does_not_create_duplicate_product(client):
     assert response.status_code == 201
     assert response.json()["offer_created"] is False
     assert db_count(Product) == 1
+
+
+def test_same_gtin_with_different_brand_does_not_create_unneeded_brand(client):
+    headers = auth_headers(client)
+    create_store(client, headers)
+    first = ingest(client, headers, external_offer(external_id="offer-1")).json()
+
+    response = ingest(
+        client,
+        headers,
+        external_offer(external_id="offer-2", brand_name="Samsung Electronics", product_name="Galaxy Watch Ultra LTE"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["product_id"] == first["product_id"]
+    assert response.json()["matched_by"] == "gtin"
+    assert db_count(Brand) == 1
+
+
+def test_same_gtin_with_different_category_does_not_create_unneeded_category(client):
+    headers = auth_headers(client)
+    create_store(client, headers)
+    first = ingest(client, headers, external_offer(external_id="offer-1")).json()
+
+    response = ingest(
+        client,
+        headers,
+        external_offer(external_id="offer-2", category_name="Relogios Inteligentes", product_name="Galaxy Watch Ultra LTE"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["product_id"] == first["product_id"]
+    assert response.json()["matched_by"] == "gtin"
+    assert db_count(Category) == 1
+
+
+def test_existing_offer_does_not_change_product_silently(client):
+    headers = auth_headers(client)
+    create_store(client, headers)
+    first = ingest(client, headers, external_offer(external_id="offer-1")).json()
+
+    response = ingest(
+        client,
+        headers,
+        external_offer(external_id="offer-1", product_name="Collector renamed title", gtin=None, sku=None, brand_name=None, model=None),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["offer_id"] == first["offer_id"]
+    assert response.json()["product_id"] == first["product_id"]
+    assert get_offer(first["offer_id"]).product_id == first["product_id"]
+    assert db_count(Product) == 1
+
+
+def test_existing_offer_product_conflict_returns_409_and_rolls_back(client):
+    headers = auth_headers(client)
+    create_store(client, headers)
+    first = ingest(client, headers, external_offer(external_id="offer-1")).json()
+    other = ingest(
+        client,
+        headers,
+        external_offer(
+            external_id="offer-2",
+            product_name="iPhone 16 Pro",
+            brand_name="Apple",
+            category_name="Celulares",
+            model="16 Pro",
+            gtin="0001112223334",
+            sku="IPHONE-16-PRO",
+            seller_external_id="seller-2",
+            seller_name="Apple Oficial",
+        ),
+    ).json()
+
+    response = ingest(
+        client,
+        headers,
+        external_offer(
+            external_id="offer-1",
+            product_name="iPhone 16 Pro",
+            brand_name="Apple Store Conflict",
+            category_name="Conflict Category",
+            model="16 Pro",
+            gtin="0001112223334",
+            sku="IPHONE-16-PRO",
+            seller_external_id="seller-conflict",
+            seller_name="Conflict Seller",
+        ),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Existing offer is linked to a different product"
+    assert get_offer(first["offer_id"]).product_id == first["product_id"]
+    assert db_count(Product) == 2
+    assert db_count(Brand) == 2
+    assert db_count(Category) == 2
+    assert db_count(Seller) == 2
+    assert other["product_id"] != first["product_id"]

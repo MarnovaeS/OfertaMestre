@@ -85,6 +85,8 @@ A oferta e localizada por `store_id + external_id`.
 - Se nao existir, cria `ProductOffer`.
 - Se existir, atualiza campos mutaveis.
 - `external_id` da oferta existente nao e alterado.
+- `product_id` da oferta existente nao e trocado automaticamente.
+- Se o matching apontar para outro produto, a ingestao retorna conflito e faz rollback.
 
 ## Snapshots
 
@@ -135,4 +137,5 @@ Este endpoint exige JWT e existe para collectors futuros. Ele nao e uma API publ
 - Nao ha fuzzy matching avancado.
 - Nao ha controle de concorrencia especifico para ingestao simultanea da mesma oferta alem das constraints do banco.
 - Nao ha filas, workers, agendamento, Redis ou Celery.
+- Reconciliacao manual/assistida entre ofertas e produtos fica para sprint futura.
 - Nao ha coletor real ou integracao com lojas.

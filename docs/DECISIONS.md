@@ -28,6 +28,7 @@
 - Use deterministic normalization and conservative matching only.
 - Make ingestion atomic with one commit at the end and rollback on failure.
 - Create price snapshots only when relevant price fields change.
+- Do not automatically reassign an existing offer to another product; product-offer reconciliation is deferred.
 - Add basic structured logging without secrets.
 
 ## Deferred
