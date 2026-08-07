@@ -36,12 +36,24 @@
 - Criar testes de dominio.
 - Atualizar documentacao.
 
+## Sprint 0.3 - Implementada
+
+- Criar contrato `ExternalOfferInput`.
+- Criar normalizacao deterministica.
+- Criar matching e deduplicacao de produtos.
+- Criar ingestao transacional.
+- Criar endpoint interno autenticado para ingestao de ofertas.
+- Garantir idempotencia de oferta e snapshots.
+- Adicionar logging estruturado basico.
+- Criar testes de ingestao.
+- Documentar fluxo em `docs/INGESTION.md`.
+
 ## Sprint 1 - Planejada
 
 - Definir estrategia de coleta sem implementar scraping antecipado.
 - Implementar primeiro conector aprovado pelo roadmap.
 - Evoluir consultas publicas do dominio.
-- Planejar ingestao de snapshots.
+- Planejar ingestao de snapshots em collectors reais.
 
 ## Sprints Futuras
 
