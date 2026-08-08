@@ -1,11 +1,11 @@
-﻿from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 
 from app.models.store import Store
 from app.services._persistence import commit_refresh
 
 INITIAL_STORES = [
     ("Amazon Brasil", "amazon-brasil", "https://www.amazon.com.br"),
-    ("Mercado Livre", "mercado-livre", "https://www.mercadolivre.com.br"),
+    ("Mercado Livre", "mercadolivre", "https://www.mercadolivre.com.br"),
     ("Magazine Luiza", "magazine-luiza", "https://www.magazineluiza.com.br"),
     ("KaBuM!", "kabum", "https://www.kabum.com.br"),
     ("Casas Bahia", "casas-bahia", "https://www.casasbahia.com.br"),
