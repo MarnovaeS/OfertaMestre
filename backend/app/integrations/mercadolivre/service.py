@@ -74,17 +74,17 @@ def handle_callback(
 ) -> str:
     config = require_mercadolivre_settings()
     cipher = TokenCipher(config.token_encryption_key)
-    oauth_state = _get_valid_state(db, state)
-    code_verifier = cipher.decrypt(oauth_state.code_verifier)
-    _consume_state(db, oauth_state)
     client = http_client or MercadoLivreHttpClient()
 
     try:
+        oauth_state = _get_valid_state(db, state)
+        code_verifier = cipher.decrypt(oauth_state.code_verifier)
         token_payload = client.exchange_authorization_code(config, code, code_verifier)
         token_response = MercadoLivreTokenResponse.model_validate(token_payload)
         _upsert_integration(db, oauth_state.user_id, token_response, cipher)
+        _mark_state_consumed(oauth_state)
         db.commit()
-    except (MercadoLivreOAuthError, ValidationError):
+    except Exception:
         db.rollback()
         raise
 
@@ -92,9 +92,15 @@ def handle_callback(
 
 
 def handle_callback_denial(db: Session, state: str | None) -> None:
-    if state:
-        oauth_state = _get_valid_state(db, state)
-        _consume_state(db, oauth_state)
+    try:
+        if state:
+            oauth_state = _get_valid_state(db, state)
+            # access_denied is a terminal provider response, so the state is consumed deliberately.
+            _mark_state_consumed(oauth_state)
+            db.commit()
+    except Exception:
+        db.rollback()
+        raise
     raise MercadoLivreAccessDeniedError("Mercado Livre authorization was denied by the user")
 
 
@@ -159,10 +165,8 @@ def _get_valid_state(db: Session, state: str) -> OAuthState:
     return oauth_state
 
 
-def _consume_state(db: Session, oauth_state: OAuthState) -> None:
+def _mark_state_consumed(oauth_state: OAuthState) -> None:
     oauth_state.consumed = True
-    db.commit()
-    db.refresh(oauth_state)
 
 
 def _get_integration(db: Session, user_id: int) -> OAuthIntegration | None:
