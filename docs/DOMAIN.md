@@ -200,4 +200,4 @@ Regras:
 
 ## Fora do Escopo
 
-Esta fundacao nao executa coletas externas. Nao ha scraping, browser automation, filas, IA, notificacoes, watchlist, score de promocao, cupons, cashback ou dashboard real nesta sprint.
+Esta fundacao nao executa coletas externas. A Sprint 1.0 adiciona apenas OAuth do Mercado Livre para conexao de conta, sem coleta de produtos, precos ou ofertas. Nao ha scraping, browser automation, filas, IA, notificacoes, watchlist, score de promocao, cupons, cashback ou dashboard real nesta sprint.

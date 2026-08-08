@@ -1,6 +1,6 @@
 ﻿# Ingestao
 
-A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa coletores reais, scraping, automacao de browser, filas ou integracoes com marketplaces.
+A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa coletores reais, scraping, automacao de browser, filas ou integracoes comerciais com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao.
 
 ## Fluxo
 

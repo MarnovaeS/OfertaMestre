@@ -1,7 +1,19 @@
 ﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, brands, categories, dashboard, health, internal_ingestion, offers, products, sellers, stores
+from app.api.routes import (
+    auth,
+    brands,
+    categories,
+    dashboard,
+    health,
+    internal_ingestion,
+    mercadolivre,
+    offers,
+    products,
+    sellers,
+    stores,
+)
 from app.core.config import settings
 
 
@@ -29,6 +41,8 @@ def create_app() -> FastAPI:
     app.include_router(sellers.router, prefix="/api/v1/sellers", tags=["sellers"])
     app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
     app.include_router(offers.router, prefix="/api/v1/offers", tags=["offers"])
+    app.include_router(mercadolivre.router, prefix="/api/v1/integrations/mercadolivre", tags=["mercadolivre"])
+    app.include_router(mercadolivre.callback_router, tags=["mercadolivre"])
     app.include_router(
         internal_ingestion.router,
         prefix="/api/v1/internal/ingestion",
