@@ -5,13 +5,13 @@ import pytest
 
 from app.database.session import SessionLocal
 from app.integrations.mercadolivre import AUTHORIZATION_URL, PROVIDER
-from app.integrations.mercadolivre.exceptions import MercadoLivreAuthorizationRevokedError
+from app.integrations.mercadolivre.exceptions import MercadoLivreAuthorizationRevokedError, MercadoLivreConfigurationError
 from app.integrations.mercadolivre.oauth import TokenCipher, build_code_challenge, now_utc
 from app.integrations.mercadolivre.service import get_valid_access_token
 from app.models.oauth_integration import OAuthIntegration
 from app.models.oauth_state import OAuthState
 
-OAUTH_SECRET = "test-oauth-token-encryption-key"
+OAUTH_SECRET = "Ma8iYs3Q_SXRriqBjOsJpa91OnP2G854OW_Z1psOtbE="
 
 
 class FakeMercadoLivreClient:
@@ -107,6 +107,34 @@ def create_integration(user_id, access_token, refresh_token, expires_at, active=
         db.add(integration)
         db.commit()
 
+
+
+
+def test_token_cipher_accepts_valid_fernet_key():
+    cipher = TokenCipher(OAUTH_SECRET)
+
+    encrypted = cipher.encrypt("sample-token")
+
+    assert encrypted != "sample-token"
+
+
+def test_token_cipher_rejects_invalid_fernet_key_without_exposing_value():
+    invalid_key = "not-a-valid-fernet-key"
+
+    with pytest.raises(MercadoLivreConfigurationError) as exc_info:
+        TokenCipher(invalid_key)
+
+    assert "OAUTH_TOKEN_ENCRYPTION_KEY must be a valid Fernet key" in exc_info.value.message
+    assert invalid_key not in exc_info.value.message
+
+
+def test_token_cipher_encrypts_and_decrypts_with_explicit_fernet_key():
+    cipher = TokenCipher(OAUTH_SECRET)
+
+    encrypted = cipher.encrypt("refresh-token-value")
+
+    assert encrypted != "refresh-token-value"
+    assert cipher.decrypt(encrypted) == "refresh-token-value"
 
 def test_authorize_generates_mercadolivre_url_with_state_and_pkce(client):
     url, params = start_authorization(client)

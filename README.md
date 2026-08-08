@@ -95,7 +95,7 @@ Variaveis opcionais para OAuth Mercado Livre:
 - `MERCADOLIVRE_REDIRECT_URI`
 - `OAUTH_TOKEN_ENCRYPTION_KEY`
 
-`SECRET_KEY` deve ter pelo menos 32 caracteres e deve ser trocada fora do ambiente local. `OAUTH_TOKEN_ENCRYPTION_KEY` tambem deve ser uma string forte e diferente da chave JWT. O backend nao define valor padrao para `DATABASE_URL` ou `SECRET_KEY`.
+`SECRET_KEY` deve ter pelo menos 32 caracteres e deve ser trocada fora do ambiente local. `OAUTH_TOKEN_ENCRYPTION_KEY` deve ser uma chave Fernet valida gerada explicitamente com `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. O backend nao define valor padrao para `DATABASE_URL` ou `SECRET_KEY`.
 
 ## Como Executar o Backend Localmente
 

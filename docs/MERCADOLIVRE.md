@@ -11,7 +11,15 @@ Permitir que um usuario autenticado conecte uma conta Mercado Livre de forma seg
 - `MERCADOLIVRE_CLIENT_ID`: client id do aplicativo Mercado Livre.
 - `MERCADOLIVRE_CLIENT_SECRET`: client secret do aplicativo Mercado Livre.
 - `MERCADOLIVRE_REDIRECT_URI`: URL publica de callback cadastrada no Mercado Livre.
-- `OAUTH_TOKEN_ENCRYPTION_KEY`: chave local usada para criptografar tokens antes da persistencia.
+- `OAUTH_TOKEN_ENCRYPTION_KEY`: chave Fernet valida usada diretamente para criptografar tokens antes da persistencia.
+
+Gere `OAUTH_TOKEN_ENCRYPTION_KEY` explicitamente com Python:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Nao use senha arbitraria nesse campo; o valor precisa ser uma chave Fernet valida.
 
 Para esta fase, o redirect URI esperado para testes externos deve apontar para:
 

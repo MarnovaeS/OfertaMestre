@@ -87,9 +87,13 @@ def build_authorization_url(client_id: str, redirect_uri: str, state: str, code_
 
 
 class TokenCipher:
-    def __init__(self, secret: str) -> None:
-        key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
-        self._fernet = Fernet(key)
+    def __init__(self, fernet_key: str) -> None:
+        try:
+            self._fernet = Fernet(fernet_key)
+        except (TypeError, ValueError) as exc:
+            raise MercadoLivreConfigurationError(
+                "OAUTH_TOKEN_ENCRYPTION_KEY must be a valid Fernet key generated with Fernet.generate_key()"
+            ) from exc
 
     def encrypt(self, value: str) -> str:
         return self._fernet.encrypt(value.encode("utf-8")).decode("ascii")
