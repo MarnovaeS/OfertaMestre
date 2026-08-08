@@ -1,4 +1,4 @@
-class MercadoLivreError(Exception):
+﻿class MercadoLivreError(Exception):
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
@@ -25,7 +25,9 @@ class MercadoLivreUnauthorizedError(MercadoLivreApiError):
 
 
 class MercadoLivreForbiddenError(MercadoLivreApiError):
-    pass
+    def __init__(self, message: str, operation: str | None = None) -> None:
+        self.operation = operation
+        super().__init__(message)
 
 
 class MercadoLivreNotFoundError(MercadoLivreApiError):

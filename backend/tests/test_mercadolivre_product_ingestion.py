@@ -98,7 +98,7 @@ def item_payload(**overrides):
 
 
 class FakeMercadoLivreClient:
-    def __init__(self, item=None, sale_price=None, seller=None, error=None):
+    def __init__(self, item=None, sale_price=None, seller=None, error=None, sale_price_error=None, seller_error=None):
         self.item = item or item_payload()
         self.sale_price = sale_price if sale_price is not None else {
             "amount": 3999.0,
@@ -107,6 +107,8 @@ class FakeMercadoLivreClient:
         }
         self.seller = seller or {"id": 998877, "nickname": "Acer Oficial"}
         self.error = error
+        self.sale_price_error = sale_price_error
+        self.seller_error = seller_error
         self.item_calls = 0
         self.seller_calls = 0
 
@@ -118,6 +120,8 @@ class FakeMercadoLivreClient:
         return self.item
 
     def get_sale_price(self, item_id, access_token):
+        if self.sale_price_error:
+            raise self.sale_price_error
         return self.sale_price
 
     def get_item_prices(self, item_id, access_token):
@@ -125,6 +129,8 @@ class FakeMercadoLivreClient:
 
     def get_seller(self, seller_id, access_token):
         self.seller_calls += 1
+        if self.seller_error:
+            raise self.seller_error
         return self.seller
 
 
@@ -217,6 +223,67 @@ def test_price_change_creates_snapshot(client, monkeypatch):
     assert response.json()["snapshot_created"] is True
     assert count(PriceSnapshot) == 2
 
+
+
+def test_item_forbidden_fails_with_operation_context(client, monkeypatch):
+    from app.integrations.mercadolivre.exceptions import MercadoLivreForbiddenError
+
+    headers = prepare_connected_user(client)
+    install_fake_client(
+        monkeypatch,
+        FakeMercadoLivreClient(error=MercadoLivreForbiddenError("Mercado Livre API access is forbidden", operation="item")),
+    )
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB403", headers=headers)
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Mercado Livre API access is forbidden during item request"
+
+
+def test_sale_price_forbidden_uses_item_price_fallback(client, monkeypatch, caplog):
+    from app.integrations.mercadolivre.exceptions import MercadoLivreForbiddenError
+
+    headers = prepare_connected_user(client)
+    install_fake_client(
+        monkeypatch,
+        FakeMercadoLivreClient(
+            sale_price_error=MercadoLivreForbiddenError("Mercado Livre API access is forbidden", operation="sale_price")
+        ),
+    )
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB123456789", headers=headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.json()["current_price"]) == Decimal("4200.00")
+    assert "fake-access-token" not in response.text
+    assert "fake-refresh-token" not in response.text
+    assert "fake-access-token" not in caplog.text
+    assert "fake-refresh-token" not in caplog.text
+    assert any(record.operation == "sale_price" for record in caplog.records)
+
+
+def test_seller_forbidden_uses_safe_fallback_without_seller_name(client, monkeypatch, caplog):
+    from app.integrations.mercadolivre.exceptions import MercadoLivreForbiddenError
+
+    headers = prepare_connected_user(client)
+    install_fake_client(
+        monkeypatch,
+        FakeMercadoLivreClient(
+            seller_error=MercadoLivreForbiddenError("Mercado Livre API access is forbidden", operation="seller")
+        ),
+    )
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB123456789", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["seller_external_id"] == "998877"
+    assert body["seller_name"] is None
+    assert "fake-access-token" not in response.text
+    assert "fake-refresh-token" not in response.text
+    assert "fake-access-token" not in caplog.text
+    assert "fake-refresh-token" not in caplog.text
+    assert any(record.operation == "seller" for record in caplog.records)
 
 def test_missing_item_returns_404(client, monkeypatch):
     from app.integrations.mercadolivre.exceptions import MercadoLivreNotFoundError

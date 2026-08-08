@@ -98,7 +98,10 @@ def _call_mercadolivre(operation):
     except MercadoLivreUnauthorizedError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=exc.message) from exc
     except MercadoLivreForbiddenError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=exc.message) from exc
+        detail = exc.message
+        if exc.operation:
+            detail = f"{exc.message} during {exc.operation} request"
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail) from exc
     except (MercadoLivreNotFoundError, DomainNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=exc.message) from exc
     except DomainConflictError as exc:

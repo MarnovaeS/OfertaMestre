@@ -1,4 +1,4 @@
-﻿import json
+import json
 import random
 import time
 from email.utils import parsedate_to_datetime
@@ -62,28 +62,28 @@ class MercadoLivreHttpClient:
         )
 
     def get_item(self, item_id: str, access_token: str) -> dict[str, Any]:
-        return self._get_json(f"/items/{item_id}", access_token)
+        return self._get_json(f"/items/{item_id}", access_token, operation="item")
 
     def get_items(self, item_ids: list[str], access_token: str) -> list[dict[str, Any]]:
         if not item_ids:
             return []
-        response = self._get_json(f"/items?ids={','.join(item_ids)}", access_token)
+        response = self._get_json(f"/items?ids={','.join(item_ids)}", access_token, operation="items")
         return response if isinstance(response, list) else []
 
     def get_sale_price(self, item_id: str, access_token: str) -> dict[str, Any] | None:
         try:
-            return self._get_json(f"/items/{item_id}/sale_price?context=channel_marketplace", access_token)
+            return self._get_json(f"/items/{item_id}/sale_price?context=channel_marketplace", access_token, operation="sale_price")
         except MercadoLivreNotFoundError:
             return None
 
     def get_item_prices(self, item_id: str, access_token: str) -> dict[str, Any] | None:
         try:
-            return self._get_json(f"/items/{item_id}/prices", access_token)
+            return self._get_json(f"/items/{item_id}/prices", access_token, operation="prices")
         except MercadoLivreNotFoundError:
             return None
 
     def get_seller(self, seller_id: int | str, access_token: str) -> dict[str, Any]:
-        return self._get_json(f"/users/{seller_id}", access_token)
+        return self._get_json(f"/users/{seller_id}", access_token, operation="seller")
 
     def _post_form(self, form: dict[str, str]) -> dict[str, Any]:
         payload = urlencode(form).encode("utf-8")
@@ -107,7 +107,7 @@ class MercadoLivreHttpClient:
 
         return self._parse_json_body(body)
 
-    def _get_json(self, path: str, access_token: str) -> Any:
+    def _get_json(self, path: str, access_token: str, *, operation: str) -> Any:
         url = f"{API_BASE_URL}{path}"
         for attempt in range(self.max_retries + 1):
             request = Request(
@@ -126,7 +126,7 @@ class MercadoLivreHttpClient:
                 if exc.code in RETRYABLE_STATUS_CODES and attempt < self.max_retries:
                     self._sleep_before_retry(exc, attempt)
                     continue
-                self._raise_api_http_error(exc)
+                self._raise_api_http_error(exc, operation)
             except URLError as exc:
                 raise MercadoLivreApiError("Mercado Livre API is unavailable") from exc
         raise MercadoLivreApiError("Mercado Livre API request failed")
@@ -143,12 +143,12 @@ class MercadoLivreHttpClient:
             raise MercadoLivreAuthorizationRevokedError("Mercado Livre authorization is no longer valid") from exc
         raise MercadoLivreOAuthError(detail) from exc
 
-    def _raise_api_http_error(self, exc: HTTPError) -> None:
+    def _raise_api_http_error(self, exc: HTTPError, operation: str) -> None:
         detail = self._safe_error_detail(exc, "Mercado Livre API request failed")
         if exc.code == 401:
             raise MercadoLivreUnauthorizedError("Mercado Livre API authorization failed") from exc
         if exc.code == 403:
-            raise MercadoLivreForbiddenError("Mercado Livre API access is forbidden") from exc
+            raise MercadoLivreForbiddenError("Mercado Livre API access is forbidden", operation=operation) from exc
         if exc.code == 404:
             raise MercadoLivreNotFoundError("Mercado Livre resource not found") from exc
         if exc.code == 429:
