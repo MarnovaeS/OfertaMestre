@@ -6,8 +6,12 @@ from sqlalchemy.orm import Session
 from app.integrations.mercadolivre import PROVIDER
 from app.integrations.mercadolivre.client import MercadoLivreHttpClient
 from app.integrations.mercadolivre.exceptions import (
+    MercadoLivreAccessDeniedError,
     MercadoLivreAuthorizationRevokedError,
+    MercadoLivreExpiredStateError,
+    MercadoLivreInvalidStateError,
     MercadoLivreOAuthError,
+    MercadoLivreReusedStateError,
 )
 from app.integrations.mercadolivre.oauth import (
     STATE_TTL_MINUTES,
@@ -30,6 +34,8 @@ from app.integrations.mercadolivre.schemas import (
 from app.models.oauth_integration import OAuthIntegration
 from app.models.oauth_state import OAuthState
 from app.models.user import User
+
+CALLBACK_SUCCESS_MESSAGE = "Mercado Livre conectado com sucesso ao OfertaMestre."
 
 
 def create_authorization(db: Session, user: User) -> MercadoLivreAuthorizeResponse:
@@ -65,24 +71,31 @@ def handle_callback(
     code: str,
     state: str,
     http_client: MercadoLivreHttpClient | None = None,
-) -> dict[str, str]:
+) -> str:
     config = require_mercadolivre_settings()
     cipher = TokenCipher(config.token_encryption_key)
     oauth_state = _get_valid_state(db, state)
-    code_verifier = cipher.decrypt(str(oauth_state.code_verifier))
+    code_verifier = cipher.decrypt(oauth_state.code_verifier)
+    _consume_state(db, oauth_state)
     client = http_client or MercadoLivreHttpClient()
 
     try:
         token_payload = client.exchange_authorization_code(config, code, code_verifier)
         token_response = MercadoLivreTokenResponse.model_validate(token_payload)
         _upsert_integration(db, oauth_state.user_id, token_response, cipher)
-        oauth_state.consumed = True
         db.commit()
     except (MercadoLivreOAuthError, ValidationError):
         db.rollback()
         raise
 
-    return {"status": "connected", "provider": PROVIDER}
+    return CALLBACK_SUCCESS_MESSAGE
+
+
+def handle_callback_denial(db: Session, state: str | None) -> None:
+    if state:
+        oauth_state = _get_valid_state(db, state)
+        _consume_state(db, oauth_state)
+    raise MercadoLivreAccessDeniedError("Mercado Livre authorization was denied by the user")
 
 
 def get_status(db: Session, user: User) -> MercadoLivreStatusResponse:
@@ -136,18 +149,20 @@ def get_valid_access_token(
 
 
 def _get_valid_state(db: Session, state: str) -> OAuthState:
-    oauth_state = (
-        db.query(OAuthState)
-        .filter(
-            OAuthState.provider == PROVIDER,
-            OAuthState.state_hash == hash_state(state),
-            OAuthState.consumed.is_(False),
-        )
-        .first()
-    )
-    if oauth_state is None or as_utc(oauth_state.expires_at) <= now_utc():
-        raise MercadoLivreOAuthError("Invalid or expired Mercado Livre OAuth state")
+    oauth_state = db.query(OAuthState).filter(OAuthState.provider == PROVIDER, OAuthState.state_hash == hash_state(state)).first()
+    if oauth_state is None:
+        raise MercadoLivreInvalidStateError("Invalid Mercado Livre OAuth state")
+    if oauth_state.consumed:
+        raise MercadoLivreReusedStateError("Mercado Livre OAuth state was already used")
+    if as_utc(oauth_state.expires_at) <= now_utc():
+        raise MercadoLivreExpiredStateError("Mercado Livre OAuth state is expired")
     return oauth_state
+
+
+def _consume_state(db: Session, oauth_state: OAuthState) -> None:
+    oauth_state.consumed = True
+    db.commit()
+    db.refresh(oauth_state)
 
 
 def _get_integration(db: Session, user_id: int) -> OAuthIntegration | None:

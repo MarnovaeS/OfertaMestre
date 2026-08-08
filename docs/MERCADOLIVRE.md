@@ -1,6 +1,6 @@
 ﻿# Mercado Livre OAuth
 
-A Sprint 1.0 implementa somente a fundacao OAuth 2.0 do Mercado Livre. Ela nao implementa scraping, coleta de produtos, coleta de precos, reconciliacao de catalogo ou ingestao automatica de ofertas.
+A Sprint 1.1 prepara o fluxo OAuth 2.0 real do Mercado Livre para teste manual de ponta a ponta. Ela nao implementa scraping, coleta de produtos, coleta de precos, reconciliacao de catalogo ou ingestao automatica de ofertas.
 
 ## Objetivo
 
@@ -19,7 +19,7 @@ Gere `OAUTH_TOKEN_ENCRYPTION_KEY` explicitamente com Python:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Nao use senha arbitraria nesse campo; o valor precisa ser uma chave Fernet valida.
+Nao use senha arbitraria nesse campo; o valor precisa ser uma chave Fernet valida. Nunca versione `MERCADOLIVRE_CLIENT_SECRET`, tokens ou `OAUTH_TOKEN_ENCRYPTION_KEY`.
 
 Para esta fase, o redirect URI esperado para testes externos deve apontar para:
 
@@ -27,7 +27,7 @@ Para esta fase, o redirect URI esperado para testes externos deve apontar para:
 https://nature-dating-repeated.ngrok-free.dev/oauth/mercadolivre/callback
 ```
 
-Esse valor nao fica hardcoded no codigo. Ele deve ser configurado por ambiente.
+Esse valor nao fica hardcoded no codigo. Ele deve ser configurado por ambiente e precisa bater exatamente com o redirect cadastrado no aplicativo do Mercado Livre.
 
 ## Endpoints
 
@@ -43,28 +43,138 @@ Resposta:
 }
 ```
 
+A URL contem:
+
+- `response_type=code`
+- `client_id`
+- `redirect_uri`
+- `state`
+- `code_challenge`
+- `code_challenge_method=S256`
+
 ### `GET /oauth/mercadolivre/callback`
 
-Endpoint publico de callback do provedor. Recebe `code` e `state`, valida o `state`, recupera o PKCE verifier, troca o codigo por tokens, criptografa os tokens e persiste a integracao.
+Endpoint publico de callback do provedor. Nao exige JWT porque a chamada vem do navegador apos autorizacao no Mercado Livre. A associacao com o usuario interno e preservada pelo `state` criado previamente para o usuario autenticado.
 
-Resposta:
+O callback:
 
-```json
-{
-  "status": "connected",
-  "provider": "mercadolivre"
-}
+- valida `state`;
+- valida expiracao do `state`;
+- impede reutilizacao do `state`;
+- recupera o PKCE verifier criptografado;
+- troca o authorization code por tokens;
+- criptografa tokens antes da persistencia;
+- salva `provider_user_id`, quando retornado;
+- marca a integracao como ativa;
+- nunca retorna tokens ao navegador.
+
+Resposta de sucesso para teste manual:
+
+```text
+Mercado Livre conectado com sucesso ao OfertaMestre.
 ```
-
-Tokens nunca sao retornados ao frontend.
 
 ### `GET /api/v1/integrations/mercadolivre/status`
 
 Endpoint autenticado. Informa se o usuario autenticado possui integracao ativa.
 
+Resposta conectada:
+
+```json
+{
+  "connected": true,
+  "provider": "mercadolivre",
+  "expires_at": "2026-08-07T18:00:00Z",
+  "provider_user_id": "123456"
+}
+```
+
+Tokens nunca sao retornados.
+
 ### `DELETE /api/v1/integrations/mercadolivre`
 
 Endpoint autenticado. Remove a integracao local e seus tokens criptografados.
+
+## Teste OAuth Real
+
+1. Configure `.env` a partir de `.env.example`.
+
+2. Preencha somente no `.env` local:
+
+```text
+MERCADOLIVRE_CLIENT_ID=<seu_app_id>
+MERCADOLIVRE_CLIENT_SECRET=<seu_client_secret>
+MERCADOLIVRE_REDIRECT_URI=https://nature-dating-repeated.ngrok-free.dev/oauth/mercadolivre/callback
+OAUTH_TOKEN_ENCRYPTION_KEY=<chave_fernet_gerada_localmente>
+```
+
+3. Suba o ambiente:
+
+```bash
+docker compose up --build
+```
+
+4. Verifique a API:
+
+```bash
+curl http://localhost:8000/health
+```
+
+5. Crie ou use um usuario local e obtenha um JWT:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"oauth@example.com","full_name":"OAuth User","password":"strong-password"}'
+
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=oauth@example.com&password=strong-password"
+```
+
+6. Obtenha a authorization URL:
+
+```bash
+curl http://localhost:8000/api/v1/integrations/mercadolivre/authorize \
+  -H "Authorization: Bearer <JWT>"
+```
+
+7. Abra `authorization_url` no navegador e autorize o aplicativo no Mercado Livre.
+
+8. O navegador deve voltar para `/oauth/mercadolivre/callback` e exibir:
+
+```text
+Mercado Livre conectado com sucesso ao OfertaMestre.
+```
+
+9. Confirme o status da integracao:
+
+```bash
+curl http://localhost:8000/api/v1/integrations/mercadolivre/status \
+  -H "Authorization: Bearer <JWT>"
+```
+
+10. Desconecte a integracao quando terminar o teste:
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/integrations/mercadolivre \
+  -H "Authorization: Bearer <JWT>"
+```
+
+11. Encerre o ambiente:
+
+```bash
+docker compose down
+```
+
+## Tratamento de Erros
+
+- `access_denied`: autorizacao negada pelo usuario no Mercado Livre.
+- State invalido: o `state` nao existe ou nao pertence a uma autorizacao iniciada pelo backend.
+- State expirado: a authorization URL deve ser gerada novamente.
+- State reutilizado: o callback ja foi processado ou negado anteriormente.
+- Authorization code invalido/expirado: gere uma nova authorization URL e repita a autorizacao.
+- Refresh revogado: a integracao local e marcada como inativa.
 
 ## Persistencia
 

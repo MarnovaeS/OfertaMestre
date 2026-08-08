@@ -5,7 +5,11 @@ import pytest
 
 from app.database.session import SessionLocal
 from app.integrations.mercadolivre import AUTHORIZATION_URL, PROVIDER
-from app.integrations.mercadolivre.exceptions import MercadoLivreAuthorizationRevokedError, MercadoLivreConfigurationError
+from app.integrations.mercadolivre.exceptions import (
+    MercadoLivreAuthorizationCodeError,
+    MercadoLivreAuthorizationRevokedError,
+    MercadoLivreConfigurationError,
+)
 from app.integrations.mercadolivre.oauth import TokenCipher, build_code_challenge, now_utc
 from app.integrations.mercadolivre.service import get_valid_access_token
 from app.models.oauth_integration import OAuthIntegration
@@ -108,8 +112,6 @@ def create_integration(user_id, access_token, refresh_token, expires_at, active=
         db.commit()
 
 
-
-
 def test_token_cipher_accepts_valid_fernet_key():
     cipher = TokenCipher(OAUTH_SECRET)
 
@@ -136,6 +138,7 @@ def test_token_cipher_encrypts_and_decrypts_with_explicit_fernet_key():
     assert encrypted != "refresh-token-value"
     assert cipher.decrypt(encrypted) == "refresh-token-value"
 
+
 def test_authorize_generates_mercadolivre_url_with_state_and_pkce(client):
     url, params = start_authorization(client)
 
@@ -156,8 +159,9 @@ def test_callback_validates_state_and_connects_without_returning_tokens(client, 
     response = client.get(f"/oauth/mercadolivre/callback?code=auth-code&state={params['state']}")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "connected", "provider": "mercadolivre"}
-    assert "access_token" not in response.json()
+    assert response.text == "Mercado Livre conectado com sucesso ao OfertaMestre."
+    assert "access_token" not in response.text
+    assert "refresh_token" not in response.text
     assert fake_client.exchanged_code == "auth-code"
 
 
@@ -165,6 +169,71 @@ def test_callback_rejects_invalid_state(client):
     response = client.get("/oauth/mercadolivre/callback?code=auth-code&state=invalid")
 
     assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid Mercado Livre OAuth state"
+
+
+def test_callback_rejects_missing_authorization_code(client):
+    _, params = start_authorization(client)
+
+    response = client.get(f"/oauth/mercadolivre/callback?state={params['state']}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre OAuth authorization code is required"
+
+
+def test_callback_handles_access_denied_and_consumes_state(client):
+    _, params = start_authorization(client)
+
+    response = client.get(f"/oauth/mercadolivre/callback?error=access_denied&state={params['state']}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre authorization was denied by the user"
+    with SessionLocal() as db:
+        assert db.query(OAuthState).first().consumed is True
+
+
+def test_callback_rejects_expired_state(client):
+    _, params = start_authorization(client)
+    with SessionLocal() as db:
+        oauth_state = db.query(OAuthState).first()
+        oauth_state.expires_at = now_utc() - timedelta(minutes=1)
+        db.commit()
+
+    response = client.get(f"/oauth/mercadolivre/callback?code=auth-code&state={params['state']}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre OAuth state is expired"
+
+
+def test_callback_rejects_reused_state(client, monkeypatch):
+    _, params = start_authorization(client)
+    monkeypatch.setattr("app.integrations.mercadolivre.service.MercadoLivreHttpClient", lambda: FakeMercadoLivreClient())
+
+    first_response = client.get(f"/oauth/mercadolivre/callback?code=auth-code&state={params['state']}")
+    second_response = client.get(f"/oauth/mercadolivre/callback?code=auth-code&state={params['state']}")
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 400
+    assert second_response.json()["detail"] == "Mercado Livre OAuth state was already used"
+
+
+def test_invalid_authorization_code_consumes_state_and_returns_safe_error(client, monkeypatch):
+    _, params = start_authorization(client)
+
+    class InvalidCodeClient(FakeMercadoLivreClient):
+        def exchange_authorization_code(self, config, code, code_verifier):
+            raise MercadoLivreAuthorizationCodeError("Mercado Livre authorization code is invalid or expired")
+
+    monkeypatch.setattr("app.integrations.mercadolivre.service.MercadoLivreHttpClient", lambda: InvalidCodeClient())
+
+    response = client.get(f"/oauth/mercadolivre/callback?code=bad-code&state={params['state']}")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre authorization code is invalid or expired"
+    assert "bad-code" not in response.text
+    with SessionLocal() as db:
+        assert db.query(OAuthState).first().consumed is True
+        assert db.query(OAuthIntegration).count() == 0
 
 
 def test_pkce_verifier_is_encrypted_and_matches_authorization_challenge(client):
@@ -190,6 +259,8 @@ def test_tokens_are_stored_encrypted_after_callback(client, monkeypatch):
         integration = db.query(OAuthIntegration).first()
         assert integration.access_token != "access-token-123"
         assert integration.refresh_token != "refresh-token-123"
+        assert integration.provider_user_id == "123456"
+        assert integration.is_active is True
         assert TokenCipher(OAUTH_SECRET).decrypt(integration.access_token) == "access-token-123"
 
 
@@ -203,6 +274,24 @@ def test_status_returns_disconnected_when_user_has_no_tokens(client):
         "expires_at": None,
         "provider_user_id": None,
     }
+
+
+def test_status_returns_connected_metadata_without_tokens(client, monkeypatch):
+    headers = auth_headers(client)
+    response = client.get("/api/v1/integrations/mercadolivre/authorize", headers=headers)
+    params = {key: values[0] for key, values in parse_qs(urlparse(response.json()["authorization_url"]).query).items()}
+    monkeypatch.setattr("app.integrations.mercadolivre.service.MercadoLivreHttpClient", lambda: FakeMercadoLivreClient())
+    client.get(f"/oauth/mercadolivre/callback?code=auth-code&state={params['state']}")
+
+    status_response = client.get("/api/v1/integrations/mercadolivre/status", headers=headers)
+
+    assert status_response.status_code == 200
+    payload = status_response.json()
+    assert payload["connected"] is True
+    assert payload["provider_user_id"] == "123456"
+    assert payload["expires_at"]
+    assert "access_token" not in payload
+    assert "refresh_token" not in payload
 
 
 def test_valid_access_token_is_reused_without_refresh(client):
@@ -276,6 +365,18 @@ def test_missing_configuration_returns_clear_error(client, monkeypatch):
 
     assert response.status_code == 503
     assert "MERCADOLIVRE_CLIENT_ID" in response.json()["detail"]
+
+
+def test_invalid_fernet_key_returns_configuration_error(client, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "oauth_token_encryption_key", "not-a-valid-fernet-key")
+
+    response = client.get("/api/v1/integrations/mercadolivre/authorize", headers=auth_headers(client))
+
+    assert response.status_code == 503
+    assert "OAUTH_TOKEN_ENCRYPTION_KEY must be a valid Fernet key" in response.json()["detail"]
+    assert "not-a-valid-fernet-key" not in response.json()["detail"]
 
 
 def test_oauth_flow_does_not_log_secrets(client, monkeypatch, caplog):

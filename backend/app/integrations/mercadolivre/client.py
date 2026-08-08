@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from app.integrations.mercadolivre import TOKEN_URL, USER_AGENT
 from app.integrations.mercadolivre.exceptions import (
+    MercadoLivreAuthorizationCodeError,
     MercadoLivreAuthorizationRevokedError,
     MercadoLivreOAuthError,
 )
@@ -63,7 +64,7 @@ class MercadoLivreHttpClient:
             with urlopen(request, timeout=self.timeout) as response:
                 body = response.read().decode("utf-8")
         except HTTPError as exc:
-            self._raise_http_error(exc)
+            self._raise_http_error(exc, grant_type=form.get("grant_type"))
         except URLError as exc:
             raise MercadoLivreOAuthError("Mercado Livre OAuth service is unavailable") from exc
 
@@ -76,7 +77,7 @@ class MercadoLivreHttpClient:
             raise MercadoLivreOAuthError("Mercado Livre returned an invalid OAuth response")
         return parsed
 
-    def _raise_http_error(self, exc: HTTPError) -> None:
+    def _raise_http_error(self, exc: HTTPError, grant_type: str | None) -> None:
         detail = "Mercado Livre rejected the OAuth request"
         try:
             body = exc.read().decode("utf-8")
@@ -86,6 +87,8 @@ class MercadoLivreHttpClient:
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
 
-        if exc.code in {400, 401} and detail in {"invalid_grant", "unauthorized_client"}:
+        if exc.code in {400, 401} and detail == "invalid_grant" and grant_type == "authorization_code":
+            raise MercadoLivreAuthorizationCodeError("Mercado Livre authorization code is invalid or expired") from exc
+        if exc.code in {400, 401} and detail in {"invalid_grant", "unauthorized_client"} and grant_type == "refresh_token":
             raise MercadoLivreAuthorizationRevokedError("Mercado Livre authorization is no longer valid") from exc
         raise MercadoLivreOAuthError(detail) from exc

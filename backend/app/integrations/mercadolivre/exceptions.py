@@ -12,5 +12,25 @@ class MercadoLivreOAuthError(MercadoLivreError):
     pass
 
 
+class MercadoLivreAccessDeniedError(MercadoLivreOAuthError):
+    pass
+
+
+class MercadoLivreInvalidStateError(MercadoLivreOAuthError):
+    pass
+
+
+class MercadoLivreExpiredStateError(MercadoLivreOAuthError):
+    pass
+
+
+class MercadoLivreReusedStateError(MercadoLivreOAuthError):
+    pass
+
+
+class MercadoLivreAuthorizationCodeError(MercadoLivreOAuthError):
+    pass
+
+
 class MercadoLivreAuthorizationRevokedError(MercadoLivreOAuthError):
     pass
