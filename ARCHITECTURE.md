@@ -22,6 +22,7 @@ Camadas:
 - `app/api/routes`: interface HTTP.
 - `app/schemas`: contratos Pydantic de entrada e saida do dominio administrativo.
 - `app/ingestion`: contrato externo, normalizacao, matching e service transacional de ingestao.
+- `app/integrations`: conectores de APIs oficiais e adaptadores por provedor.
 - `app/services`: regras de aplicacao e persistencia do CRUD administrativo.
 - `app/models`: modelos SQLAlchemy.
 - `app/database`: engine, session e metadata.
@@ -51,7 +52,25 @@ A Sprint 0.3 adiciona uma camada generica de ingestao para ofertas externas futu
 ExternalOfferInput -> Normalizer -> Matcher -> Ingestion Service -> Domain Models
 ```
 
-A ingestao e transacional, usa `flush` durante o fluxo e faz `commit` apenas ao final. Ela nao implementa collectors reais e nao conhece detalhes de marketplaces especificos.
+A ingestao e transacional, usa `flush` durante o fluxo e faz `commit` apenas ao final. Ela nao conhece detalhes de marketplaces especificos.
+
+## Mercado Livre Product Ingestion
+
+A Sprint 2 adiciona um modulo especifico de integracao:
+
+```text
+app/integrations/mercadolivre/client.py
+app/integrations/mercadolivre/adapter.py
+app/integrations/mercadolivre/collector.py
+```
+
+Responsabilidades:
+
+- `client.py`: chamadas HTTP oficiais autenticadas, timeout, tratamento de erros e retry limitado.
+- `adapter.py`: conversao de payloads Mercado Livre para `ExternalOfferInput`.
+- `collector.py`: orquestracao por usuario autenticado, validacao da Store `mercadolivre`, uso de `get_valid_access_token` e chamada da ingestion existente.
+
+O coletor Mercado Livre nao duplica matching, criacao de seller, criacao de produto, idempotencia de oferta ou snapshots; essas regras continuam em `app/ingestion/service.py`.
 
 ## Frontend
 
@@ -91,6 +110,7 @@ backend/
     events/
     exceptions/
     ingestion/
+    integrations/
     jobs/
     models/
     schemas/
@@ -113,5 +133,7 @@ docs/
 - O frontend e servido por Nginx no container de producao.
 - Leituras de dominio sao publicas; escrita administrativa exige JWT.
 - Endpoint de ingestao e interno e autenticado.
-- Roles/permissoes ficam fora da Sprint 0.3.
+- Coleta Mercado Livre usa somente API oficial e OAuth persistido.
+- Retry e rate-limit ficam dentro do client Mercado Livre.
+- Roles/permissoes ficam fora da Sprint 2.
 - Scrapers, IA, filas, notificacoes e dashboard real continuam fora do escopo.

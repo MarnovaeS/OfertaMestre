@@ -48,12 +48,28 @@
 - Criar testes de ingestao.
 - Documentar fluxo em `docs/INGESTION.md`.
 
-## Sprint 1 - Planejada
+## Sprint 1 - Implementada
 
-- Definir estrategia de coleta sem implementar scraping antecipado.
-- Implementar primeiro conector aprovado pelo roadmap.
+- Criar OAuth Mercado Livre.
+- Persistir tokens criptografados.
+- Criar authorize, callback, status e disconnect.
+- Preparar callback real sem retornar tokens.
+
+## Sprint 2 - Implementada
+
+- Cliente Mercado Livre autenticado para item, multiget, sale price, prices e seller.
+- Retry limitado para 429/5xx com backoff, jitter e suporte a Retry-After.
+- Adaptador Mercado Livre para `ExternalOfferInput`.
+- `MercadoLivreCollectorService` delegando para `ingest_external_offer`.
+- Endpoint `GET /api/v1/integrations/mercadolivre/items/{item_id}`.
+- Endpoint `POST /api/v1/integrations/mercadolivre/items/{item_id}/ingest`.
+- Testes mockados para normalizacao, ingestao, idempotencia, preco, seller, erros e rate limit.
+
+## Sprint 3 - Planejada
+
+- Busca por palavra-chave ou estrategia de descoberta aprovada.
+- Planejar varredura controlada sem scraping.
 - Evoluir consultas publicas do dominio.
-- Planejar ingestao de snapshots em collectors reais.
 
 ## Sprints Futuras
 

@@ -1,10 +1,6 @@
-﻿# Mercado Livre OAuth
+﻿# Mercado Livre OAuth e Product Ingestion
 
-A Sprint 1.0 implementa somente a fundacao OAuth 2.0 do Mercado Livre. Ela nao implementa scraping, coleta de produtos, coleta de precos, reconciliacao de catalogo ou ingestao automatica de ofertas.
-
-## Objetivo
-
-Permitir que um usuario autenticado conecte uma conta Mercado Livre de forma segura para uso em sprints futuras.
+A Sprint 2 adiciona a primeira ingestao manual de anuncios do Mercado Livre usando somente API oficial e a camada de ingestion existente do OfertaMestre. Nao ha scraping, busca por palavra-chave, varredura de catalogo, scheduler, filas, Redis, Celery ou IA.
 
 ## Variaveis de Ambiente
 
@@ -19,104 +15,152 @@ Gere `OAUTH_TOKEN_ENCRYPTION_KEY` explicitamente com Python:
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Nao use senha arbitraria nesse campo; o valor precisa ser uma chave Fernet valida.
+Nunca versione client secret, access token, refresh token ou chave Fernet.
 
-Para esta fase, o redirect URI esperado para testes externos deve apontar para:
+## OAuth
+
+O OAuth permanece a base para chamadas autenticadas na API oficial do Mercado Livre.
+
+Endpoints:
+
+- `GET /api/v1/integrations/mercadolivre/authorize`
+- `GET /oauth/mercadolivre/callback`
+- `GET /api/v1/integrations/mercadolivre/status`
+- `DELETE /api/v1/integrations/mercadolivre`
+
+Tokens sao criptografados com Fernet e nunca retornam em respostas HTTP.
+
+## Ingestao Manual por Item
+
+### Consultar item normalizado sem persistir
+
+```http
+GET /api/v1/integrations/mercadolivre/items/{item_id}
+Authorization: Bearer <JWT>
+```
+
+Retorna `ExternalOfferInput` sanitizado e normalizado. Nao retorna tokens.
+
+### Ingerir item
+
+```http
+POST /api/v1/integrations/mercadolivre/items/{item_id}/ingest
+Authorization: Bearer <JWT>
+```
+
+Fluxo:
 
 ```text
-https://nature-dating-repeated.ngrok-free.dev/oauth/mercadolivre/callback
+Mercado Livre API
+  -> raw item
+  -> sale_price / seller quando necessario
+  -> MercadoLivre adapter
+  -> ExternalOfferInput
+  -> IngestionService
+  -> Product / ProductOffer / PriceSnapshot
 ```
 
-Esse valor nao fica hardcoded no codigo. Ele deve ser configurado por ambiente.
+O endpoint e interno/admin para teste nesta fase.
 
-## Endpoints
+## Store
 
-### `GET /api/v1/integrations/mercadolivre/authorize`
+A ingestao exige uma `Store` existente com slug:
 
-Endpoint autenticado. Gera `state`, PKCE `code_verifier`/`code_challenge`, persiste o estado temporario no banco e retorna a URL de autorizacao do Mercado Livre.
-
-Resposta:
-
-```json
-{
-  "authorization_url": "https://auth.mercadolivre.com.br/authorization?..."
-}
+```text
+mercadolivre
 ```
 
-### `GET /oauth/mercadolivre/callback`
+A coleta nao cria Store automaticamente. Se a Store nao existir, a API retorna erro claro.
 
-Endpoint publico de callback do provedor. Recebe `code` e `state`, valida o `state`, recupera o PKCE verifier, troca o codigo por tokens, criptografa os tokens e persiste a integracao.
+## Precos
 
-Resposta:
+A documentacao oficial atual do Mercado Livre orienta consultar endpoints especificos de precos porque `price`, `base_price` e `original_price` de `/items` serao descontinuados para consulta de preco.
 
-```json
-{
-  "status": "connected",
-  "provider": "mercadolivre"
-}
+Nesta sprint, o coletor prioriza:
+
+```text
+GET /items/{item_id}/sale_price?context=channel_marketplace
 ```
 
-Tokens nunca sao retornados ao frontend.
+Mapeamento:
 
-### `GET /api/v1/integrations/mercadolivre/status`
+- `current_price`: `sale_price.amount`.
+- `original_price`: `sale_price.regular_amount`, quando disponivel.
+- `currency`: `sale_price.currency_id`.
 
-Endpoint autenticado. Informa se o usuario autenticado possui integracao ativa.
+Fallback:
 
-### `DELETE /api/v1/integrations/mercadolivre`
+- Se `sale_price` nao estiver disponivel, usa `item.price` e `item.original_price` como fallback controlado.
 
-Endpoint autenticado. Remove a integracao local e seus tokens criptografados.
+Limitacao atual:
 
-## Persistencia
+- Precos por quantidade, price lists avancadas e contextos por nivel de comprador ficam para sprint futura.
 
-### `oauth_states`
+## Seller
 
-Tabela temporaria para protecao CSRF e PKCE:
+Quando o item retorna `seller_id`, o coletor consulta `/users/{seller_id}` para obter `nickname` somente quando necessario. Existe cache em memoria por request do `MercadoLivreCollectorService`; nao ha Redis nesta sprint.
 
-- `user_id`
-- `provider`
-- `state_hash`
-- `code_verifier`
-- `redirect_uri`
-- `expires_at`
-- `consumed`
+Mapeamento:
 
-O `state` puro nao e persistido; apenas hash SHA-256. O `code_verifier` e persistido criptografado.
+- `seller_external_id`: `seller_id`.
+- `seller_name`: `users/{seller_id}.nickname`, quando disponivel.
+- `seller_is_official`: `official_store_id != null`.
 
-### `oauth_integrations`
+## Rate Limit e Retry
 
-Tabela de integracoes OAuth por usuario:
+Para chamadas autenticadas, o client HTTP usa timeout explicito e retry limitado somente para:
 
-- `user_id`
-- `provider`
-- `provider_user_id`
-- `access_token`
-- `refresh_token`
-- `token_type`
-- `expires_at`
-- `scope`
-- `is_active`
+- `429`
+- `500`
+- `502`
+- `503`
+- `504`
 
-Existe unicidade por `user_id + provider`.
+Para `429`, respeita `Retry-After` quando presente. Sem `Retry-After`, usa exponential backoff com jitter. Nao ha retry indiscriminado.
 
-## Refresh de Token
+Erros tratados:
 
-`get_valid_access_token` retorna o token atual quando ainda e valido. Quando o token esta perto de expirar, usa o `refresh_token`, atualiza os tokens criptografados e substitui o refresh token quando o provedor retornar um novo.
+- `401`: autorizacao falhou.
+- `403`: acesso proibido.
+- `404`: recurso nao encontrado.
+- `429`: rate limit excedido.
+- `5xx`: indisponibilidade temporaria.
 
-Se o refresh falhar por autorizacao revogada, a integracao local e marcada como inativa.
+## Campos Normalizados
 
-## Seguranca
+O adaptador mapeia para `ExternalOfferInput` quando a API fornece os dados:
 
-- OAuth `state` aleatorio e validado no callback.
-- PKCE S256 habilitado.
-- Tokens sao criptografados com Fernet antes de ir ao banco.
-- O client HTTP tem timeout explicito.
-- Segredos nao sao logados.
-- O callback nunca retorna tokens.
+- `source = mercadolivre`
+- `external_id`
+- `store_slug = mercadolivre`
+- `seller_external_id`
+- `seller_name`
+- `seller_is_official`
+- `title`
+- `product_name`
+- `brand_name`
+- `model`
+- `gtin`
+- `sku`
+- `url`
+- `image_url`
+- `current_price`
+- `original_price`
+- `shipping_price`
+- `currency`
+- `is_available`
+- `is_free_shipping`
+- `installment_count`
+- `installment_value`
+- `captured_at`
+
+`category_name` nao e inferido a partir de `category_id` nesta sprint, para evitar inventar dados sem consultar um endpoint complementar de categorias.
 
 ## Fora do Escopo
 
-- Scrapers.
-- Coleta de produtos ou precos.
-- Jobs ou agendadores.
-- Reconciliacao de ofertas/produtos.
-- Sincronizacao de catalogo Mercado Livre.
+- Busca por palavra-chave.
+- Varredura massiva de catalogo.
+- Scheduler, filas, Redis ou Celery.
+- Scraping.
+- Alertas, WhatsApp, IA ou recomendacao de promocoes.
+- Comparacao historica avancada.

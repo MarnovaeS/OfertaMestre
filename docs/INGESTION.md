@@ -1,8 +1,8 @@
 ﻿# Ingestao
 
-A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa coletores reais, scraping, automacao de browser, filas ou integracoes comerciais com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao.
+A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa scraping, automacao de browser, filas ou integracoes comerciais diretas com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao. A Sprint 2 adiciona coleta manual por item_id do Mercado Livre usando API oficial e delegando para esta camada.
 
-## Fluxo
+## Fluxo Generico
 
 ```text
 Collector futuro
@@ -14,6 +14,19 @@ Collector futuro
 ```
 
 A camada de dominio nao conhece detalhes especificos de Amazon, Mercado Livre, Steam ou qualquer outra loja.
+
+## Fluxo Mercado Livre
+
+```text
+Mercado Livre API oficial
+  -> raw item / sale_price / seller
+  -> MercadoLivre adapter
+  -> ExternalOfferInput
+  -> ingest_external_offer
+  -> Product / ProductOffer / PriceSnapshot
+```
+
+A Store `mercadolivre` deve existir antes da coleta. Ela nao e criada automaticamente.
 
 ## Contrato de Entrada
 
@@ -74,9 +87,17 @@ Se nenhuma correspondencia segura for encontrada, um novo `Product` e criado.
 
 A ingestao recebe `store_slug` e exige que a `Store` ja exista. Lojas nao sao criadas automaticamente durante a ingestao.
 
+Para Mercado Livre, o slug esperado e:
+
+```text
+mercadolivre
+```
+
 ## Seller
 
 Quando `seller_external_id` ou `seller_name` sao informados, a ingestao procura o seller dentro da store correta. Se nao existir, cria um novo seller nessa store. Seller de outra loja nunca e reutilizado.
+
+No coletor Mercado Livre, `seller_id` vira `seller_external_id` e `users/{seller_id}.nickname` vira `seller_name` quando disponivel.
 
 ## Oferta
 
@@ -99,6 +120,12 @@ Ingestoes seguintes criam snapshot somente quando houver mudanca em:
 - `shipping_price`.
 
 Se os precos forem identicos ao snapshot mais recente, nenhum snapshot duplicado e criado.
+
+## Precos Mercado Livre
+
+O coletor Mercado Livre prioriza `GET /items/{item_id}/sale_price?context=channel_marketplace` para obter `current_price`, `original_price` e `currency`. Quando esse endpoint nao esta disponivel, usa `item.price` e `item.original_price` como fallback controlado.
+
+`shipping_price` e tratado separadamente: quando `shipping.free_shipping` e verdadeiro, usa `0.00`; quando a API nao informa preco de frete, permanece `null`.
 
 ## Transacao
 
@@ -125,11 +152,20 @@ Valores atuais de `matched_by`:
 - `normalized_name`
 - `created_new`
 
-## Endpoint Interno
+## Endpoints
+
+### Ingestao Interna
 
 `POST /api/v1/internal/ingestion/offers`
 
 Este endpoint exige JWT e existe para collectors futuros. Ele nao e uma API publica de usuario final.
+
+### Mercado Livre
+
+- `GET /api/v1/integrations/mercadolivre/items/{item_id}`: consulta e normaliza sem persistir.
+- `POST /api/v1/integrations/mercadolivre/items/{item_id}/ingest`: consulta, normaliza e persiste via ingestion.
+
+Ambos exigem JWT e OAuth Mercado Livre conectado.
 
 ## Limitacoes Atuais
 
@@ -138,4 +174,5 @@ Este endpoint exige JWT e existe para collectors futuros. Ele nao e uma API publ
 - Nao ha controle de concorrencia especifico para ingestao simultanea da mesma oferta alem das constraints do banco.
 - Nao ha filas, workers, agendamento, Redis ou Celery.
 - Reconciliacao manual/assistida entre ofertas e produtos fica para sprint futura.
-- Nao ha coletor real ou integracao com lojas.
+- Nao ha scraping, busca por palavra-chave ou varredura massiva de catalogo.
+- Precos avancados por quantidade e contextos adicionais do Mercado Livre ficam para sprint futura.

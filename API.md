@@ -113,6 +113,24 @@ Retorna `IngestionResult` com:
 
 Este endpoint nao e publico para usuarios finais e nao executa coleta externa.
 
+## Mercado Livre
+
+Endpoints autenticados:
+
+- `GET /api/v1/integrations/mercadolivre/authorize`
+- `GET /api/v1/integrations/mercadolivre/status`
+- `DELETE /api/v1/integrations/mercadolivre`
+- `GET /api/v1/integrations/mercadolivre/items/{item_id}`
+- `POST /api/v1/integrations/mercadolivre/items/{item_id}/ingest`
+
+Callback publico do provedor:
+
+- `GET /oauth/mercadolivre/callback`
+
+`GET /items/{item_id}` retorna um `ExternalOfferInput` sanitizado e nao persiste dados. `POST /items/{item_id}/ingest` busca item/preco/seller na API oficial, normaliza e delega para a ingestion existente, retornando `IngestionResult`.
+
+Tokens OAuth nunca sao retornados pela API.
+
 ## Fora do Escopo Atual
 
-Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.
+Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou busca massiva de marketplaces nesta sprint.
