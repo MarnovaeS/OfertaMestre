@@ -31,10 +31,19 @@
 - Do not automatically reassign an existing offer to another product; product-offer reconciliation is deferred.
 - Add basic structured logging without secrets.
 
+## Sprint 1.0
+
+- Add Mercado Livre OAuth as an integration module under `app/integrations`, separate from domain and ingestion.
+- Store OAuth state and PKCE verifier in the database instead of process memory.
+- Persist only a SHA-256 hash of OAuth `state` and encrypt the PKCE verifier.
+- Encrypt access and refresh tokens before persistence using authenticated encryption.
+- Keep the OAuth callback at `/oauth/mercadolivre/callback` to match provider redirect configuration.
+- Keep product, price and offer collection out of scope for this sprint.
+
 ## Deferred
 
 - Scrapers are intentionally deferred.
-- External marketplace APIs are intentionally deferred.
+- Product, price and offer collection from Mercado Livre are intentionally deferred.
 - Browser automation is intentionally deferred.
 - Queues, Redis, Celery and schedulers are intentionally deferred.
 - AI scoring is intentionally deferred.
