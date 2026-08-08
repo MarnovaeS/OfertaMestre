@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 from decimal import Decimal
 from email.message import Message
 from urllib.error import HTTPError
@@ -356,6 +356,114 @@ def test_incomplete_optional_api_response_does_not_break_normalization(client, m
     assert response.json()["brand_name"] is None
     assert response.json()["shipping_price"] is None
 
+
+
+def assert_invalid_item_is_rejected(client, monkeypatch, item, expected_detail, sale_price=None):
+    headers = prepare_connected_user(client)
+    install_fake_client(monkeypatch, FakeMercadoLivreClient(item=item, sale_price=sale_price))
+
+    response = client.post("/api/v1/integrations/mercadolivre/items/MLB123456789/ingest", headers=headers)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == expected_detail
+    assert count(ProductOffer) == 0
+    assert count(PriceSnapshot) == 0
+
+
+def test_item_without_id_is_rejected(client, monkeypatch):
+    item = item_payload(id=None)
+
+    assert_invalid_item_is_rejected(
+        client,
+        monkeypatch,
+        item,
+        "Mercado Livre item field 'id' is required",
+    )
+
+
+def test_item_without_title_is_rejected(client, monkeypatch):
+    item = item_payload(title="")
+
+    assert_invalid_item_is_rejected(
+        client,
+        monkeypatch,
+        item,
+        "Mercado Livre item field 'title' is required",
+    )
+
+
+def test_item_without_permalink_is_rejected(client, monkeypatch):
+    item = item_payload(permalink="   ")
+
+    assert_invalid_item_is_rejected(
+        client,
+        monkeypatch,
+        item,
+        "Mercado Livre item field 'permalink' is required",
+    )
+
+
+def test_item_without_valid_price_is_rejected(client, monkeypatch):
+    item = item_payload(price=None)
+
+    assert_invalid_item_is_rejected(
+        client,
+        monkeypatch,
+        item,
+        "Mercado Livre item field 'price' is required",
+        sale_price={},
+    )
+
+
+def test_item_without_currency_is_rejected(client, monkeypatch):
+    item = item_payload(currency_id=None)
+
+    assert_invalid_item_is_rejected(
+        client,
+        monkeypatch,
+        item,
+        "Mercado Livre item field 'currency_id' is required",
+        sale_price={},
+    )
+
+
+def test_free_shipping_true_sets_shipping_price_to_zero(client, monkeypatch):
+    headers = prepare_connected_user(client)
+    install_fake_client(monkeypatch, FakeMercadoLivreClient(item=item_payload(shipping={"free_shipping": True})))
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB123456789", headers=headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.json()["shipping_price"]) == Decimal("0.00")
+
+
+def test_free_shipping_false_without_shipping_price_keeps_shipping_unknown(client, monkeypatch):
+    headers = prepare_connected_user(client)
+    install_fake_client(monkeypatch, FakeMercadoLivreClient(item=item_payload(shipping={"free_shipping": False})))
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB123456789", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["shipping_price"] is None
+    assert response.json()["is_free_shipping"] is False
+
+
+def test_required_fields_never_become_none_string(client, monkeypatch):
+    headers = prepare_connected_user(client)
+    item = item_payload(id="MLB987654321", title="Monitor Gamer", permalink="https://example.com/item")
+    install_fake_client(monkeypatch, FakeMercadoLivreClient(item=item))
+
+    response = client.get("/api/v1/integrations/mercadolivre/items/MLB987654321", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["external_id"] == "MLB987654321"
+    assert body["title"] == "Monitor Gamer"
+    assert body["product_name"] == "Monitor Gamer"
+    assert body["url"] == "https://example.com/item"
+    assert body["currency"] == "BRL"
+    for field in ["external_id", "title", "product_name", "url", "currency"]:
+        assert body[field] != "None"
 
 def test_invalid_price_is_rejected(client, monkeypatch):
     headers = prepare_connected_user(client)

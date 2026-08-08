@@ -1,4 +1,4 @@
-﻿# Ingestao
+# Ingestao
 
 A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa scraping, automacao de browser, filas ou integracoes comerciais diretas com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao. A Sprint 2 adiciona coleta manual por item_id do Mercado Livre usando API oficial e delegando para esta camada.
 
@@ -176,3 +176,7 @@ Ambos exigem JWT e OAuth Mercado Livre conectado.
 - Reconciliacao manual/assistida entre ofertas e produtos fica para sprint futura.
 - Nao ha scraping, busca por palavra-chave ou varredura massiva de catalogo.
 - Precos avancados por quantidade e contextos adicionais do Mercado Livre ficam para sprint futura.
+
+## Semantica de Frete
+
+Na ingestao Mercado Livre, `shipping_price = 0.00` significa frete gratis confirmado por `free_shipping=true`. `shipping_price = null` significa frete desconhecido; nao deve ser interpretado como frete gratis e o sistema nao inventa valores de frete.

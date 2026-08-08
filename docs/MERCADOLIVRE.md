@@ -1,4 +1,4 @@
-﻿# Mercado Livre OAuth e Product Ingestion
+# Mercado Livre OAuth e Product Ingestion
 
 A Sprint 2 adiciona a primeira ingestao manual de anuncios do Mercado Livre usando somente API oficial e a camada de ingestion existente do OfertaMestre. Nao ha scraping, busca por palavra-chave, varredura de catalogo, scheduler, filas, Redis, Celery ou IA.
 
@@ -146,7 +146,7 @@ O adaptador mapeia para `ExternalOfferInput` quando a API fornece os dados:
 - `image_url`
 - `current_price`
 - `original_price`
-- `shipping_price`
+- `shipping_price`: `0.00` somente quando `shipping.free_shipping=true`; `null` quando o valor real do frete nao estiver disponivel. `null` significa frete desconhecido, nao frete gratis.
 - `currency`
 - `is_available`
 - `is_free_shipping`

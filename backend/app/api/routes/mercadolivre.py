@@ -1,4 +1,4 @@
-﻿from typing import Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import ValidationError
@@ -15,6 +15,7 @@ from app.integrations.mercadolivre.exceptions import (
     MercadoLivreConfigurationError,
     MercadoLivreForbiddenError,
     MercadoLivreNotFoundError,
+    MercadoLivreNormalizationError,
     MercadoLivreOAuthError,
     MercadoLivreRateLimitError,
     MercadoLivreServerError,
@@ -108,5 +109,7 @@ def _call_mercadolivre(operation):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
     except MercadoLivreApiError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.message) from exc
+    except MercadoLivreNormalizationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.message) from exc
     except (ValidationError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid Mercado Livre item payload") from exc
