@@ -127,12 +127,15 @@ Fluxo esperado para ofertas com preco real:
 Provider externo -> normalizador/adaptador -> ExternalOfferInput -> IngestionService
 ```
 
-Fluxo atual da Steam:
+Fluxos atuais da Steam:
 
 ```text
 Steam GetAppList -> Catalog Discovery -> ProviderCatalogItem / ProviderSyncState
+ProviderCatalogItem -> Steam appdetails -> ExternalOfferInput -> IngestionService
 ```
 
 `ProviderCatalogItem` registra existencia e sinais de alteracao de catalogo. `ProviderSyncState` guarda cursor incremental por provider. Nenhum desses modelos armazena segredo ou preco inventado.
 
-Steam fica separada de `ProductOffer` e `PriceSnapshot` ate existir fonte oficial de preco atual acessivel. Mercado Livre permanece congelado aguardando resolucao externa de acesso.
+A fonte oficial Steamworks continua limitada a catalogo. A Sprint 2.1B adiciona enriquecimento experimental de preco via endpoint publico nao documentado `appdetails`, isolado por feature flag (`STEAM_APPDETAILS_ENABLED`) e identificado com `price_source=store_appdetails` e `price_source_class=undocumented_public`.
+
+Somente quando ha preco real validado a Steam cria `ExternalOfferInput` e reutiliza a camada generica para persistir `Product`, `ProductOffer` e `PriceSnapshot`. Mercado Livre permanece congelado aguardando resolucao externa de acesso.

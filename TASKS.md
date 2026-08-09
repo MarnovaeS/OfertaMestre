@@ -77,3 +77,15 @@
 - Criar endpoints internos autenticados para status, apps e sync.
 - Garantir que Steam nao crie `PriceSnapshot` sem preco real.
 - Documentar Provider Roadmap.
+
+
+## Sprint 2.1B - Implementada
+
+- Corrigir host default da Steam Web API para `https://api.steampowered.com`.
+- Adicionar fonte experimental de preco `store_appdetails` atras de feature flag.
+- Normalizar `price_overview` usando minor units, sem usar campos formatados como fonte numerica.
+- Tratar apps gratuitos apenas quando a resposta provar `is_free=true`.
+- Criar endpoints autenticados de consulta de preco e ingestao por appid.
+- Reutilizar `ExternalOfferInput` e `IngestionService` para persistir ofertas Steam com preco real.
+- Adicionar timeout, retries, Retry-After, backoff, cache, rate limit local e circuit breaker simples no client experimental.
+- Documentar riscos da fonte `undocumented_public`.

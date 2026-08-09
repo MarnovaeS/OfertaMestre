@@ -1,73 +1,119 @@
 # Steam Provider
 
-A Sprint 2.1 adiciona a Steam como provider de **Catalog Discovery** usando apenas API oficial Steamworks. Nao ha scraping, scheduler, IA, alertas ou ingestao de oferta com preco nesta sprint.
+A integracao Steam esta dividida em duas fontes isoladas:
 
-## Endpoint Oficial
+1. Catalog Discovery usando API oficial Steamworks `IStoreService/GetAppList/v1`.
+2. Enriquecimento experimental de preco usando o endpoint publico nao documentado da Steam Store `appdetails`.
 
-API usada:
+Nao ha scraping, browser automation, scheduler, IA, alertas ou coleta em massa nesta fase.
+
+## Fonte Oficial de Catalogo
+
+API usada para catalogo:
 
 ```text
-GET https://partner.steam-api.com/IStoreService/GetAppList/v1/
+GET https://api.steampowered.com/IStoreService/GetAppList/v1/
 ```
 
 Fonte oficial: Steamworks Web API, `IStoreService/GetAppList`.
 
-A chave deve vir exclusivamente de:
+Configuracoes:
 
 ```text
 STEAM_WEB_API_KEY
+STEAM_WEB_API_BASE_URL=https://api.steampowered.com
 ```
 
-Nunca versionar, logar ou retornar essa chave.
+A chave deve vir exclusivamente de variavel de ambiente. Nunca versionar, logar ou retornar `STEAM_WEB_API_KEY`.
 
-## Catalog Discovery
+## Fonte Experimental de Preco
 
-Fluxo atual:
+API usada para preco real:
 
 ```text
-Steam GetAppList
-  -> Steam adapter/service
-  -> ProviderCatalogItem
-  -> ProviderSyncState
-  -> futura etapa de enriquecimento de preco
+GET https://store.steampowered.com/api/appdetails?appids={appid}&cc=br&filters=price_overview
 ```
 
-Nesta sprint, Steam nao cria `ExternalOfferInput`, `ProductOffer` ou `PriceSnapshot`, porque `GetAppList` nao retorna preco atual.
+Esta fonte e classificada como:
 
-## Dados Disponiveis
+```text
+price_source=store_appdetails
+price_source_class=undocumented_public
+```
 
-Cada app pode trazer:
+`appdetails` e um endpoint publico da Steam Store, mas nao faz parte da documentacao oficial Steamworks. Por isso o enriquecimento fica atras de feature flag e deve ser tratado como experimental.
 
-- `appid`
-- `name`
-- `last_modified`
-- `price_change_number`
+Configuracoes:
 
-`last_modified` indica alteracao em informacoes ou preco do app. `price_change_number` alterado indica que o preco **pode** ter mudado. Isso nao significa que o novo preco e conhecido.
+```text
+STEAM_STORE_BASE_URL=https://store.steampowered.com
+STEAM_APPDETAILS_ENABLED=false
+STEAM_COUNTRY_CODE=br
+```
 
-## Dados Nao Disponiveis Nesta Fonte
+Com `STEAM_APPDETAILS_ENABLED=false`, o catalogo Steam continua funcionando e apenas os endpoints de preco/ingestao retornam indisponibilidade controlada.
 
-`IStoreService/GetAppList/v1` nao fornece:
+## Normalizacao de Preco
 
-- preco atual;
-- preco anterior;
-- moeda;
-- desconto;
-- disponibilidade comercial detalhada.
+O OfertaMestre usa somente campos numericos de `price_overview`:
 
-Por isso o OfertaMestre nao inventa preco e nao cria historico de preco para Steam nesta sprint.
+- `initial`: preco original em centavos/minor units.
+- `final`: preco atual em centavos/minor units.
+- `currency`: moeda.
+- `discount_percent`: percentual de desconto.
 
-## Paginacao
+Exemplo: `19990` vira `199.90`.
 
-Parametros suportados:
+Campos `*_formatted` nunca sao usados como fonte numerica.
 
-- `max_results`: limite por pagina, limitado pela API interna do OfertaMestre.
-- `last_appid`: cursor da pagina anterior.
-- `modified_since`: enviado como `if_modified_since`.
-- `include_games`: default `true`.
-- `include_dlc`: default `false`.
+Validacoes aplicadas:
 
-A resposta oficial e ordenada por `appid`; chamadas seguintes devem usar o ultimo `appid` como `last_appid`.
+- `currency` obrigatoria.
+- `final` obrigatorio e nao negativo.
+- `initial` obrigatorio e nao negativo quando `price_overview` existe.
+- `initial >= final`.
+- `discount_percent` entre 0 e 100.
+- desconto positivo exige diferenca real entre preco original e atual.
+
+## Apps Gratuitos
+
+Se `success=true` e nao houver `price_overview`, o OfertaMestre so considera preco zero quando a resposta provar explicitamente que o app e gratuito, por exemplo com `is_free=true`.
+
+Se a resposta nao provar gratuidade, o preco e tratado como desconhecido e nenhuma ingestao de oferta deve ser feita.
+
+## Fluxos
+
+Catalogo:
+
+```text
+Steam GetAppList -> Steam adapter/service -> ProviderCatalogItem -> ProviderSyncState
+```
+
+Preco/ingestao:
+
+```text
+ProviderCatalogItem -> appdetails price enrichment -> ExternalOfferInput -> IngestionService -> Product / ProductOffer / PriceSnapshot
+```
+
+A oferta Steam usa:
+
+- `store_slug=steam`
+- `external_id={appid}`
+- URL canonica `https://store.steampowered.com/app/{appid}`
+
+## Resiliencia Operacional
+
+O client de `appdetails` possui:
+
+- timeout;
+- retry limitado para 429 e 5xx;
+- respeito a `Retry-After` quando presente;
+- backoff exponencial com jitter;
+- cache em memoria por `appid + country` dentro da instancia do client;
+- rate limit local simples;
+- circuit breaker simples apos falhas repetidas.
+
+Nenhum token ou segredo e enviado para `appdetails`.
 
 ## Endpoints Internos
 
@@ -77,17 +123,23 @@ Todos exigem JWT:
 GET /api/v1/integrations/steam/status
 GET /api/v1/integrations/steam/apps
 POST /api/v1/integrations/steam/sync
+GET /api/v1/integrations/steam/apps/{appid}/price
+POST /api/v1/integrations/steam/apps/{appid}/ingest
 ```
 
 `/status` retorna apenas:
 
-- `configured`
 - `provider=steam`
+- `configured`
 - `store_exists`
 
 `/apps` retorna lista sanitizada com `appid`, `name`, `last_modified` e `price_change_number`.
 
-`/sync` persiste catalogo minimo em `provider_catalog_items` e estado incremental em `provider_sync_states`.
+`/sync` persiste catalogo minimo em `provider_catalog_items` e estado incremental em `provider_sync_states`. Nao cria preco nem oferta.
+
+`/apps/{appid}/price` consulta apenas o enriquecimento experimental de preco e nao persiste dados.
+
+`/apps/{appid}/ingest` exige que o app ja exista em `ProviderCatalogItem`, enriquece o preco e envia `ExternalOfferInput` para a camada generica de ingestao.
 
 ## Change Detection
 
@@ -97,7 +149,7 @@ A funcao `has_app_changed(previous, current)` considera alteracao quando muda:
 - `last_modified`
 - `price_change_number`
 
-Mudanca em `price_change_number` significa apenas: **preco possivelmente alterado**.
+Mudanca em `price_change_number` significa apenas: **preco possivelmente alterado**. A confirmacao depende do enriquecimento de preco.
 
 ## Provider Roadmap
 

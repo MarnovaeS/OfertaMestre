@@ -115,7 +115,7 @@ Este endpoint nao e publico para usuarios finais e nao executa coleta externa.
 
 ## Fora do Escopo Atual
 
-Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.
+Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback ou score de promocao nesta sprint. Integracoes existentes permanecem limitadas ao escopo documentado: OAuth Mercado Livre e provider Steam.
 
 
 ## Integracao Steam
@@ -125,6 +125,8 @@ Endpoints autenticados/admin para teste manual da Sprint 2.1:
 - `GET /api/v1/integrations/steam/status`
 - `GET /api/v1/integrations/steam/apps?max_results=100&last_appid=0&modified_since=0`
 - `POST /api/v1/integrations/steam/sync?max_results=100`
+- `GET /api/v1/integrations/steam/apps/{appid}/price`
+- `POST /api/v1/integrations/steam/apps/{appid}/ingest`
 
 `/status` nunca retorna `STEAM_WEB_API_KEY`.
 
@@ -135,4 +137,8 @@ Endpoints autenticados/admin para teste manual da Sprint 2.1:
 - `last_modified`
 - `price_change_number`
 
-`/sync` atualiza `provider_catalog_items` e `provider_sync_states`. Nao cria `ProductOffer` nem `PriceSnapshot`, pois a API Steam usada nesta sprint nao retorna preco atual.
+`/sync` atualiza `provider_catalog_items` e `provider_sync_states`. Nao cria `ProductOffer` nem `PriceSnapshot`.
+
+`/apps/{appid}/price` usa o endpoint publico nao documentado `appdetails` quando `STEAM_APPDETAILS_ENABLED=true`. A resposta inclui `current_price`, `original_price`, `currency`, `discount_percent`, `price_source=store_appdetails` e `price_source_class=undocumented_public`.
+
+`/apps/{appid}/ingest` exige app previamente sincronizado no catalogo Steam, valida preco real e envia `ExternalOfferInput` para a ingestao interna. Se a fonte experimental estiver desativada, retorna 503. Se o preco for desconhecido, retorna 422 e nao persiste oferta.

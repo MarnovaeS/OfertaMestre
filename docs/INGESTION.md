@@ -153,4 +153,8 @@ Steam entra primeiro como Catalog Discovery:
 IStoreService/GetAppList -> ProviderCatalogItem -> ProviderSyncState
 ```
 
-Como `GetAppList` nao retorna preco atual, Steam nao cria `ProductOffer` ou `PriceSnapshot` nesta sprint. `price_change_number` alterado significa apenas que o preco pode ter mudado e que o app merece enriquecimento futuro com fonte oficial apropriada.
+Como `GetAppList` nao retorna preco atual, o sync de catalogo Steam nao cria `ProductOffer` ou `PriceSnapshot`. `price_change_number` alterado significa apenas que o preco pode ter mudado.
+
+A Sprint 2.1B adiciona uma etapa separada e experimental de enriquecimento via Steam Store `appdetails`. Quando `STEAM_APPDETAILS_ENABLED=true` e ha `price_overview` valido, o provider monta `ExternalOfferInput` com `store_slug=steam`, `external_id={appid}`, URL `https://store.steampowered.com/app/{appid}` e preco real validado. A persistencia continua centralizada no `IngestionService`.
+
+Se `appdetails` nao trouxer preco e nao provar que o app e gratuito (`is_free=true`), a Steam nao cria oferta nem snapshot. Preco desconhecido nao vira `0.00`.
