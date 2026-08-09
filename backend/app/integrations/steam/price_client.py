@@ -218,4 +218,9 @@ def _required_str(value: Any, field_name: str) -> str:
 def _optional_int(value: Any) -> int | None:
     if value is None:
         return None
-    return int(value)
+    if isinstance(value, bool):
+        raise SteamPriceUnavailableError("Steam appdetails field 'discount_percent' must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise SteamPriceUnavailableError("Steam appdetails field 'discount_percent' must be an integer") from exc

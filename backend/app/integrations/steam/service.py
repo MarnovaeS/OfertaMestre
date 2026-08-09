@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from threading import local
 from typing import Any
 
 from sqlalchemy import select
@@ -6,18 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.exceptions.domain import DomainNotFoundError
-from app.ingestion.contracts import ExternalOfferInput, IngestionResult
+from app.ingestion.contracts import ExternalOfferInput
 from app.ingestion.service import ingest_external_offer
 from app.integrations.steam import PROVIDER, STORE_SLUG
 from app.integrations.steam.client import SteamStoreClient
 from app.integrations.steam.exceptions import SteamConfigurationError, SteamPriceDisabledError
 from app.integrations.steam.price_client import SteamPrice, SteamStorePriceClient
-from app.integrations.steam.schemas import SteamAppRead, SteamPriceRead, SteamStatusResponse, SteamSyncResult
+from app.integrations.steam.schemas import SteamAppRead, SteamIngestResult, SteamPriceRead, SteamStatusResponse, SteamSyncResult
 from app.models.provider_catalog_item import ProviderCatalogItem
 from app.models.provider_sync_state import ProviderSyncState
 from app.models.store import Store
 from app.providers.change_detection import has_app_changed
 from app.providers.contracts import CatalogItem
+
+
+_price_client_context = local()
 
 
 def get_status(db: Session) -> SteamStatusResponse:
@@ -54,7 +58,7 @@ def ingest_app_offer(
     appid: int,
     *,
     client: SteamStorePriceClient | None = None,
-) -> IngestionResult:
+) -> SteamIngestResult:
     _require_store(db)
     catalog_item = db.scalars(
         select(ProviderCatalogItem).where(
@@ -74,10 +78,15 @@ def ingest_app_offer(
             "price_source_class": price.price_source_class,
             "currency": price.currency,
             "discount_percent": price.discount_percent,
+            "is_free": price.is_free,
         }
     )
     catalog_item.metadata_json = metadata
     db.flush()
+
+    if price.is_free:
+        db.commit()
+        return SteamIngestResult(appid=appid, catalog_only=True, is_free=True)
 
     payload = ExternalOfferInput(
         source=PROVIDER,
@@ -85,15 +94,18 @@ def ingest_app_offer(
         store_slug=STORE_SLUG,
         title=catalog_item.name,
         product_name=catalog_item.name,
-        url=f"https://store.steampowered.com/app/{appid}",
+        url=f"{settings.steam_store_base_url.rstrip('/')}/app/{appid}",
         current_price=price.current_price,
         original_price=price.original_price,
         shipping_price=None,
         currency=price.currency,
         is_available=True,
         is_free_shipping=False,
+        price_source=price.price_source,
+        price_source_class=price.price_source_class,
     )
-    return ingest_external_offer(db, payload)
+    result = ingest_external_offer(db, payload)
+    return SteamIngestResult(appid=appid, **result.model_dump())
 
 
 def sync_catalog(
@@ -186,7 +198,11 @@ def sync_catalog(
 def _build_price_client() -> SteamStorePriceClient:
     if not settings.steam_appdetails_enabled:
         raise SteamPriceDisabledError("Steam appdetails price enrichment is disabled")
-    return SteamStorePriceClient(base_url=settings.steam_store_base_url)
+    key = (settings.steam_store_base_url, SteamStorePriceClient)
+    if getattr(_price_client_context, "key", None) != key:
+        _price_client_context.client = SteamStorePriceClient(base_url=settings.steam_store_base_url)
+        _price_client_context.key = key
+    return _price_client_context.client
 
 
 def _get_price(appid: int, *, client: SteamStorePriceClient | None = None) -> SteamPrice:

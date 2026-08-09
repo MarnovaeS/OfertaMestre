@@ -253,6 +253,8 @@ def _create_snapshot_if_needed(db: Session, offer: ProductOffer, payload: Extern
         "price": payload.current_price,
         "original_price": payload.original_price,
         "shipping_price": payload.shipping_price,
+        "price_source": payload.price_source,
+        "price_source_class": payload.price_source_class,
     }
     if payload.captured_at is not None:
         values["captured_at"] = payload.captured_at
@@ -267,6 +269,8 @@ def _same_prices(snapshot: PriceSnapshot, payload: ExternalOfferInput) -> bool:
         _decimal_or_none(snapshot.price) == _decimal_or_none(payload.current_price)
         and _decimal_or_none(snapshot.original_price) == _decimal_or_none(payload.original_price)
         and _decimal_or_none(snapshot.shipping_price) == _decimal_or_none(payload.shipping_price)
+        and snapshot.price_source == payload.price_source
+        and snapshot.price_source_class == payload.price_source_class
     )
 
 

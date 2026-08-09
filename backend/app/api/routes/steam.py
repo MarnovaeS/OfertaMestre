@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.exceptions.domain import DomainNotFoundError
-from app.ingestion.contracts import IngestionResult
 from app.integrations.steam.exceptions import (
     SteamApiError,
     SteamConfigurationError,
@@ -17,7 +16,7 @@ from app.integrations.steam.exceptions import (
     SteamUnauthorizedError,
 )
 from app.integrations.steam.price_client import SteamPriceUnavailableError
-from app.integrations.steam.schemas import SteamAppRead, SteamPriceRead, SteamStatusResponse, SteamSyncResult
+from app.integrations.steam.schemas import SteamAppRead, SteamIngestResult, SteamPriceRead, SteamStatusResponse, SteamSyncResult
 from app.integrations.steam.service import get_app_price, get_status, ingest_app_offer, list_apps, sync_catalog
 from app.models.user import User
 
@@ -82,12 +81,12 @@ def read_steam_app_price(
     return _call_steam(lambda: get_app_price(appid))
 
 
-@router.post("/apps/{appid}/ingest", response_model=IngestionResult, status_code=status.HTTP_201_CREATED)
+@router.post("/apps/{appid}/ingest", response_model=SteamIngestResult, status_code=status.HTTP_201_CREATED)
 def ingest_steam_app_offer(
     appid: int,
     db: Annotated[Session, Depends(get_db)],
     _: Annotated[User, Depends(get_current_user)],
-) -> IngestionResult:
+) -> SteamIngestResult:
     return _call_steam(lambda: ingest_app_offer(db, appid))
 
 

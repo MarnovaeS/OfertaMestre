@@ -8,6 +8,8 @@ class PriceSnapshotCreate(BaseModel):
     price: Decimal = Field(ge=0)
     original_price: Decimal | None = Field(default=None, ge=0)
     shipping_price: Decimal | None = Field(default=None, ge=0)
+    price_source: str | None = Field(default=None, max_length=100)
+    price_source_class: str | None = Field(default=None, max_length=100)
     captured_at: datetime | None = None
 
 
@@ -17,6 +19,8 @@ class PriceSnapshotRead(BaseModel):
     price: Decimal
     original_price: Decimal | None
     shipping_price: Decimal | None
+    price_source: str | None
+    price_source_class: str | None
     captured_at: datetime
 
     model_config = {"from_attributes": True}
