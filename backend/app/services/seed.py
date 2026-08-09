@@ -1,5 +1,6 @@
-﻿from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.store import Store
 from app.services._persistence import commit_refresh
 
@@ -11,7 +12,7 @@ INITIAL_STORES = [
     ("Casas Bahia", "casas-bahia", "https://www.casasbahia.com.br"),
     ("Samsung", "samsung", "https://www.samsung.com/br"),
     ("Shopee", "shopee", "https://shopee.com.br"),
-    ("Steam", "steam", "https://store.steampowered.com"),
+    ("Steam", "steam", settings.steam_store_base_url),
     ("Acer", "acer", "https://www.acer.com/br-pt"),
     ("Nike", "nike", "https://www.nike.com.br"),
     ("Netshoes", "netshoes", "https://www.netshoes.com.br"),

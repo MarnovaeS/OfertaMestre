@@ -4,6 +4,7 @@ import json
 import random
 import time
 from dataclasses import dataclass
+from threading import RLock
 from decimal import Decimal
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -19,7 +20,6 @@ from app.integrations.steam.exceptions import (
     SteamServerError,
 )
 
-STORE_BASE_URL = "https://store.steampowered.com"
 APPDETAILS_PATH = "/api/appdetails"
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 PRICE_SOURCE = "store_appdetails"
@@ -47,7 +47,7 @@ class SteamStorePriceClient:
     def __init__(
         self,
         *,
-        base_url: str = STORE_BASE_URL,
+        base_url: str,
         timeout: float = 10.0,
         max_retries: int = 2,
         backoff_base_seconds: float = 0.25,
@@ -66,20 +66,22 @@ class SteamStorePriceClient:
         self._last_request_at = 0.0
         self._failure_count = 0
         self._degraded_until = 0.0
+        self._state_lock = RLock()
 
     def get_price(self, appid: int, *, country_code: str) -> SteamPrice:
         country = country_code.lower()
         cache_key = (appid, country)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-        if self._is_degraded():
-            raise SteamPriceUnavailableError("Steam appdetails price provider is degraded")
+        with self._state_lock:
+            if cache_key in self._cache:
+                return self._cache[cache_key]
+            if self._is_degraded():
+                raise SteamPriceUnavailableError("Steam appdetails price provider is degraded")
 
-        payload = self._get_appdetails(appid, country)
-        price = parse_appdetails_price(appid, payload, country_code=country)
-        self._cache[cache_key] = price
-        self._failure_count = 0
-        return price
+            payload = self._get_appdetails(appid, country)
+            price = parse_appdetails_price(appid, payload, country_code=country)
+            self._cache[cache_key] = price
+            self._failure_count = 0
+            return price
 
     def _get_appdetails(self, appid: int, country_code: str) -> dict[str, Any]:
         params = {"appids": appid, "cc": country_code, "filters": "price_overview"}
@@ -177,7 +179,7 @@ def parse_appdetails_price(appid: int, payload: dict[str, Any], *, country_code:
     currency = _required_str(price_overview.get("currency"), "currency")
     current = _minor_units_to_decimal(price_overview.get("final"), "final")
     original = _minor_units_to_decimal(price_overview.get("initial"), "initial")
-    discount_percent = _optional_int(price_overview.get("discount_percent")) or 0
+    discount_percent = _optional_int(price_overview.get("discount_percent"), "discount_percent") or 0
 
     if original is not None and original < current:
         raise SteamPriceUnavailableError("Steam appdetails original price is lower than current price")
@@ -215,7 +217,12 @@ def _required_str(value: Any, field_name: str) -> str:
     return str(value).strip().upper()
 
 
-def _optional_int(value: Any) -> int | None:
+def _optional_int(value: Any, field_name: str) -> int | None:
     if value is None:
         return None
-    return int(value)
+    if isinstance(value, bool):
+        raise SteamPriceUnavailableError(f"Steam appdetails field '{field_name}' must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise SteamPriceUnavailableError(f"Steam appdetails field '{field_name}' must be an integer") from exc

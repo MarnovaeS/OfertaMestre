@@ -27,6 +27,21 @@ class SteamSyncResult(BaseModel):
     price_snapshots_created: int = 0
 
 
+class SteamIngestResult(BaseModel):
+    provider: str = "steam"
+    appid: int
+    catalog_only: bool = False
+    is_free: bool = False
+    product_id: int | None = None
+    offer_id: int | None = None
+    seller_id: int | None = None
+    product_created: bool = False
+    offer_created: bool = False
+    seller_created: bool = False
+    snapshot_created: bool = False
+    matched_by: str | None = None
+
+
 class SteamPriceRead(BaseModel):
     provider: str = "steam"
     appid: int
