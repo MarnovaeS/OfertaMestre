@@ -23,6 +23,8 @@ class ExternalOfferInput(BaseModel):
     current_price: Decimal = Field(ge=0)
     original_price: Decimal | None = Field(default=None, ge=0)
     shipping_price: Decimal | None = Field(default=None, ge=0)
+    price_source: str | None = Field(default=None, max_length=100)
+    price_source_class: str | None = Field(default=None, max_length=100)
     currency: str = Field(default="BRL", min_length=3, max_length=3)
     is_available: bool = True
     is_free_shipping: bool = False
