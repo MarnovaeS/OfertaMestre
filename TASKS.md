@@ -1,4 +1,4 @@
-﻿# Backlog
+# Backlog
 
 ## Sprint 0 - Implementada
 
@@ -64,3 +64,16 @@
 - Alertas WhatsApp via Make.
 - Telegram.
 - Email.
+
+
+## Sprint 2.1 - Implementada
+
+- Criar provider foundation leve.
+- Criar modelos `provider_catalog_items` e `provider_sync_states`.
+- Criar Store `steam` via migration idempotente.
+- Implementar Steam `IStoreService/GetAppList/v1` como Catalog Discovery.
+- Persistir `appid`, `name`, `last_modified` e `price_change_number`.
+- Implementar change detection sem assumir preco conhecido.
+- Criar endpoints internos autenticados para status, apps e sync.
+- Garantir que Steam nao crie `PriceSnapshot` sem preco real.
+- Documentar Provider Roadmap.

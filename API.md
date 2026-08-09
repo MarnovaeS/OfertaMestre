@@ -1,4 +1,4 @@
-﻿# API
+# API
 
 A OpenAPI e gerada automaticamente pelo FastAPI.
 
@@ -116,3 +116,23 @@ Este endpoint nao e publico para usuarios finais e nao executa coleta externa.
 ## Fora do Escopo Atual
 
 Nao ha endpoints de scraping, browser automation, filas, IA, watchlist, notificacoes, cupons, cashback, score de promocao ou integracoes com marketplaces nesta sprint.
+
+
+## Integracao Steam
+
+Endpoints autenticados/admin para teste manual da Sprint 2.1:
+
+- `GET /api/v1/integrations/steam/status`
+- `GET /api/v1/integrations/steam/apps?max_results=100&last_appid=0&modified_since=0`
+- `POST /api/v1/integrations/steam/sync?max_results=100`
+
+`/status` nunca retorna `STEAM_WEB_API_KEY`.
+
+`/apps` retorna apenas catalogo sanitizado:
+
+- `appid`
+- `name`
+- `last_modified`
+- `price_change_number`
+
+`/sync` atualiza `provider_catalog_items` e `provider_sync_states`. Nao cria `ProductOffer` nem `PriceSnapshot`, pois a API Steam usada nesta sprint nao retorna preco atual.

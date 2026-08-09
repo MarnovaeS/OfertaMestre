@@ -1,4 +1,4 @@
-﻿# Ingestao
+# Ingestao
 
 A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa coletores reais, scraping, automacao de browser, filas ou integracoes comerciais com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao.
 
@@ -139,3 +139,18 @@ Este endpoint exige JWT e existe para collectors futuros. Ele nao e uma API publ
 - Nao ha filas, workers, agendamento, Redis ou Celery.
 - Reconciliacao manual/assistida entre ofertas e produtos fica para sprint futura.
 - Nao ha coletor real ou integracao com lojas.
+
+
+## Catalog Discovery vs Offer Ingestion
+
+A Sprint 2.1 separa discovery de catalogo de ingestao de oferta.
+
+Catalog Discovery significa que sabemos que um produto/app existe e temos identificadores ou sinais de alteracao. Offer Ingestion exige preco real e continua usando `ExternalOfferInput`.
+
+Steam entra primeiro como Catalog Discovery:
+
+```text
+IStoreService/GetAppList -> ProviderCatalogItem -> ProviderSyncState
+```
+
+Como `GetAppList` nao retorna preco atual, Steam nao cria `ProductOffer` ou `PriceSnapshot` nesta sprint. `price_change_number` alterado significa apenas que o preco pode ter mudado e que o app merece enriquecimento futuro com fonte oficial apropriada.
