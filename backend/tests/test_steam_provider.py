@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import subprocess
+from decimal import Decimal
 from email.message import Message
 from pathlib import Path
 from urllib.error import HTTPError
@@ -10,7 +11,9 @@ import sqlalchemy as sa
 
 from app.database.session import SessionLocal
 from app.integrations.steam.client import SteamStoreClient
+from app.integrations.steam.price_client import SteamPrice, SteamPriceUnavailableError, SteamStorePriceClient, parse_appdetails_price
 from app.models.price_snapshot import PriceSnapshot
+from app.models.product_offer import ProductOffer
 from app.models.provider_catalog_item import ProviderCatalogItem
 from app.models.provider_sync_state import ProviderSyncState
 from app.models.store import Store
@@ -34,6 +37,10 @@ def steam_settings(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "steam_web_api_key", STEAM_KEY)
+    monkeypatch.setattr(settings, "steam_web_api_base_url", "https://api.steampowered.com")
+    monkeypatch.setattr(settings, "steam_store_base_url", "https://store.steampowered.com")
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", False)
+    monkeypatch.setattr(settings, "steam_country_code", "br")
 
 
 def create_steam_store():
@@ -64,7 +71,7 @@ class FakeSteamClient:
 
 
 def install_fake_steam_client(monkeypatch, fake):
-    monkeypatch.setattr("app.integrations.steam.service.SteamStoreClient", lambda key: fake)
+    monkeypatch.setattr("app.integrations.steam.service.SteamStoreClient", lambda key, **kwargs: fake)
 
 
 def test_get_app_list_valid(monkeypatch):
@@ -308,6 +315,331 @@ def test_sync_does_not_create_price_snapshot_without_real_price(client, monkeypa
     assert response.json()["price_snapshots_created"] == 0
     assert db_count(PriceSnapshot) == 0
 
+
+
+def create_catalog_item(appid=1091500, name="Cyberpunk 2077"):
+    create_steam_store()
+    with SessionLocal() as db:
+        db.add(
+            ProviderCatalogItem(
+                provider="steam",
+                store_id=db.query(Store).filter_by(slug="steam").one().id,
+                external_id=str(appid),
+                name=name,
+                last_modified=100,
+                price_change_number=1,
+            )
+        )
+        db.commit()
+
+
+class FakeSteamPriceClient:
+    def __init__(self, price):
+        self.price = price
+        self.calls = []
+
+    def get_price(self, appid, *, country_code):
+        self.calls.append({"appid": appid, "country_code": country_code})
+        if isinstance(self.price, Exception):
+            raise self.price
+        return self.price
+
+
+def install_fake_price_client(monkeypatch, fake):
+    monkeypatch.setattr("app.integrations.steam.service.SteamStorePriceClient", lambda **kwargs: fake)
+
+
+def price_payload(appid=1091500, initial=19990, final=5997, discount_percent=70, currency="BRL"):
+    return {
+        str(appid): {
+            "success": True,
+            "data": {
+                "price_overview": {
+                    "currency": currency,
+                    "initial": initial,
+                    "final": final,
+                    "discount_percent": discount_percent,
+                    "initial_formatted": "R$ 199,90",
+                    "final_formatted": "R$ 59,97",
+                }
+            },
+        }
+    }
+
+
+def test_initial_minor_units_normalize_to_original_price():
+    price = parse_appdetails_price(1091500, price_payload(), country_code="br")
+
+    assert price.original_price == Decimal("199.90")
+
+
+def test_final_minor_units_normalize_to_current_price():
+    price = parse_appdetails_price(1091500, price_payload(), country_code="br")
+
+    assert price.current_price == Decimal("59.97")
+
+
+def test_discount_percent_is_mapped():
+    price = parse_appdetails_price(1091500, price_payload(), country_code="br")
+
+    assert price.discount_percent == 70
+
+
+def test_currency_is_mapped_as_brl():
+    price = parse_appdetails_price(1091500, price_payload(), country_code="br")
+
+    assert price.currency == "BRL"
+
+
+def test_missing_currency_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, price_payload(currency=None), country_code="br")
+
+
+def test_fractional_minor_units_are_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, price_payload(final=5997.5), country_code="br")
+
+
+def test_negative_current_price_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, price_payload(final=-1), country_code="br")
+
+
+def test_original_price_lower_than_current_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, price_payload(initial=4997, final=5997), country_code="br")
+
+
+def test_positive_discount_without_price_difference_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, price_payload(initial=5997, final=5997, discount_percent=10), country_code="br")
+
+
+def test_valid_price_endpoint_response(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    install_fake_price_client(monkeypatch, FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(), country_code="br")))
+
+    response = client.get("/api/v1/integrations/steam/apps/1091500/price", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["current_price"] == "59.97"
+    assert response.json()["price_source"] == "store_appdetails"
+    assert response.json()["price_source_class"] == "undocumented_public"
+
+
+def test_success_false_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, {"1091500": {"success": False}}, country_code="br")
+
+
+def test_incomplete_schema_is_unavailable():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, {"1091500": {"success": True, "data": {"price_overview": {"currency": "BRL"}}}}, country_code="br")
+
+
+def test_missing_price_overview_is_unavailable_when_not_proven_free():
+    with pytest.raises(SteamPriceUnavailableError):
+        parse_appdetails_price(1091500, {"1091500": {"success": True, "data": {}}}, country_code="br")
+
+
+def test_confirmed_free_app_maps_to_zero_price():
+    price = parse_appdetails_price(570, {"570": {"success": True, "data": {"is_free": True}}}, country_code="br")
+
+    assert price.current_price == Decimal("0.00")
+    assert price.original_price == Decimal("0.00")
+    assert price.currency == "BRL"
+    assert price.is_free is True
+
+
+def test_appdetails_403_is_reported(monkeypatch):
+    from app.integrations.steam import price_client as price_module
+
+    def raise_403(request, timeout):
+        raise HTTPError(request.full_url, 403, "Forbidden", Message(), None)
+
+    monkeypatch.setattr(price_module, "urlopen", raise_403)
+
+    with pytest.raises(Exception):
+        SteamStorePriceClient(max_retries=0, min_interval_seconds=0).get_price(1091500, country_code="br")
+
+
+def test_appdetails_429_retries(monkeypatch):
+    from app.integrations.steam import price_client as price_module
+
+    calls = {"count": 0}
+
+    def raise_429(request, timeout):
+        calls["count"] += 1
+        raise HTTPError(request.full_url, 429, "Too Many Requests", Message(), None)
+
+    monkeypatch.setattr(price_module, "urlopen", raise_429)
+    monkeypatch.setattr(price_module.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(Exception):
+        SteamStorePriceClient(max_retries=2, backoff_base_seconds=0, min_interval_seconds=0).get_price(1091500, country_code="br")
+
+    assert calls["count"] == 3
+
+
+def test_appdetails_5xx_retries(monkeypatch):
+    from app.integrations.steam import price_client as price_module
+
+    calls = {"count": 0}
+
+    def raise_500(request, timeout):
+        calls["count"] += 1
+        raise HTTPError(request.full_url, 500, "Server Error", Message(), None)
+
+    monkeypatch.setattr(price_module, "urlopen", raise_500)
+    monkeypatch.setattr(price_module.time, "sleep", lambda seconds: None)
+
+    with pytest.raises(Exception):
+        SteamStorePriceClient(max_retries=1, backoff_base_seconds=0, min_interval_seconds=0).get_price(1091500, country_code="br")
+
+    assert calls["count"] == 2
+
+
+def test_appdetails_cache(monkeypatch):
+    from app.integrations.steam import price_client as price_module
+
+    calls = {"count": 0}
+
+    def ok(request, timeout):
+        calls["count"] += 1
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def read(self):
+                return json.dumps(price_payload()).encode()
+
+        return Response()
+
+    monkeypatch.setattr(price_module, "urlopen", ok)
+    api_client = SteamStorePriceClient(min_interval_seconds=0)
+
+    first = api_client.get_price(1091500, country_code="br")
+    second = api_client.get_price(1091500, country_code="br")
+
+    assert first == second
+    assert calls["count"] == 1
+
+
+def test_feature_flag_false_blocks_price_request(client):
+    headers = auth_headers(client)
+
+    response = client.get("/api/v1/integrations/steam/apps/1091500/price", headers=headers)
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Steam appdetails price enrichment is disabled"
+
+
+def test_appdetails_secret_never_appears_in_response_or_logs(client, monkeypatch, caplog):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    install_fake_price_client(monkeypatch, FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(), country_code="br")))
+
+    response = client.get("/api/v1/integrations/steam/apps/1091500/price", headers=headers)
+
+    assert response.status_code == 200
+    assert STEAM_KEY not in response.text
+    assert STEAM_KEY not in caplog.text
+
+
+def test_steam_ingest_creates_product_offer_with_valid_price(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    create_catalog_item()
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    install_fake_price_client(monkeypatch, FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(), country_code="br")))
+
+    response = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+
+    assert response.status_code == 201
+    assert response.json()["offer_created"] is True
+    with SessionLocal() as db:
+        offer = db.query(ProductOffer).one()
+    assert offer.current_price == Decimal("59.97")
+    assert offer.original_price == Decimal("199.90")
+    assert offer.currency == "BRL"
+
+
+def test_steam_ingest_creates_first_price_snapshot(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    create_catalog_item()
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    install_fake_price_client(monkeypatch, FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(), country_code="br")))
+
+    response = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+
+    assert response.status_code == 201
+    assert response.json()["snapshot_created"] is True
+    assert db_count(PriceSnapshot) == 1
+
+
+def test_identical_steam_ingest_does_not_create_duplicate_snapshot(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    create_catalog_item()
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    install_fake_price_client(monkeypatch, FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(), country_code="br")))
+
+    first = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers).json()
+    second = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers).json()
+
+    assert second["offer_id"] == first["offer_id"]
+    assert second["snapshot_created"] is False
+    assert db_count(PriceSnapshot) == 1
+
+
+def test_steam_final_price_change_creates_new_snapshot(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    create_catalog_item()
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    fake = FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(final=5997), country_code="br"))
+    install_fake_price_client(monkeypatch, fake)
+    client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+    fake.price = parse_appdetails_price(1091500, price_payload(final=4997), country_code="br")
+
+    response = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+
+    assert response.status_code == 201
+    assert response.json()["snapshot_created"] is True
+    assert db_count(PriceSnapshot) == 2
+
+
+def test_discount_only_change_without_numeric_price_change_does_not_create_snapshot(client, monkeypatch):
+    from app.core.config import settings
+
+    headers = auth_headers(client)
+    create_catalog_item()
+    monkeypatch.setattr(settings, "steam_appdetails_enabled", True)
+    fake = FakeSteamPriceClient(parse_appdetails_price(1091500, price_payload(discount_percent=70), country_code="br"))
+    install_fake_price_client(monkeypatch, fake)
+    client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+    fake.price = parse_appdetails_price(1091500, price_payload(discount_percent=60), country_code="br")
+
+    response = client.post("/api/v1/integrations/steam/apps/1091500/ingest", headers=headers)
+
+    assert response.status_code == 201
+    assert response.json()["snapshot_created"] is False
+    assert db_count(PriceSnapshot) == 1
 
 def test_mercadolivre_code_is_not_modified():
     result = subprocess.run(
