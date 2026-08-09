@@ -1,4 +1,4 @@
-﻿from functools import cached_property
+from functools import cached_property
 
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     mercadolivre_client_secret: str | None = None
     mercadolivre_redirect_uri: str | None = None
     oauth_token_encryption_key: str | None = None
+    steam_web_api_key: str | None = None
 
     @cached_property
     def cors_origins(self) -> list[str]:
