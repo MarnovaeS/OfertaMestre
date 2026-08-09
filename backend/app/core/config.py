@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     mercadolivre_redirect_uri: str | None = None
     oauth_token_encryption_key: str | None = None
     steam_web_api_key: str | None = None
+    steam_web_api_base_url: str = "https://api.steampowered.com"
+    steam_store_base_url: str = "https://store.steampowered.com"
+    steam_appdetails_enabled: bool = False
+    steam_country_code: str = "br"
 
     @cached_property
     def cors_origins(self) -> list[str]:

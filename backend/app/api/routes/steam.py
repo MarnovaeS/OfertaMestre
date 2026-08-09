@@ -6,16 +6,19 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.exceptions.domain import DomainNotFoundError
+from app.ingestion.contracts import IngestionResult
 from app.integrations.steam.exceptions import (
     SteamApiError,
     SteamConfigurationError,
     SteamForbiddenError,
+    SteamPriceDisabledError,
     SteamRateLimitError,
     SteamServerError,
     SteamUnauthorizedError,
 )
-from app.integrations.steam.schemas import SteamAppRead, SteamStatusResponse, SteamSyncResult
-from app.integrations.steam.service import get_status, list_apps, sync_catalog
+from app.integrations.steam.price_client import SteamPriceUnavailableError
+from app.integrations.steam.schemas import SteamAppRead, SteamPriceRead, SteamStatusResponse, SteamSyncResult
+from app.integrations.steam.service import get_app_price, get_status, ingest_app_offer, list_apps, sync_catalog
 from app.models.user import User
 
 router = APIRouter()
@@ -71,11 +74,32 @@ def sync_steam_catalog(
     )
 
 
+@router.get("/apps/{appid}/price", response_model=SteamPriceRead)
+def read_steam_app_price(
+    appid: int,
+    _: Annotated[User, Depends(get_current_user)],
+) -> SteamPriceRead:
+    return _call_steam(lambda: get_app_price(appid))
+
+
+@router.post("/apps/{appid}/ingest", response_model=IngestionResult, status_code=status.HTTP_201_CREATED)
+def ingest_steam_app_offer(
+    appid: int,
+    db: Annotated[Session, Depends(get_db)],
+    _: Annotated[User, Depends(get_current_user)],
+) -> IngestionResult:
+    return _call_steam(lambda: ingest_app_offer(db, appid))
+
+
 def _call_steam(operation):
     try:
         return operation()
     except SteamConfigurationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
+    except SteamPriceDisabledError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=exc.message) from exc
+    except SteamPriceUnavailableError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.message) from exc
     except SteamUnauthorizedError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=exc.message) from exc
     except SteamForbiddenError as exc:

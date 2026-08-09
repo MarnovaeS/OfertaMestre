@@ -16,14 +16,22 @@ from app.integrations.steam.exceptions import (
     SteamUnauthorizedError,
 )
 
-API_BASE_URL = "https://partner.steam-api.com"
+API_BASE_URL = "https://api.steampowered.com"
 GET_APP_LIST_PATH = "/IStoreService/GetAppList/v1/"
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class SteamStoreClient:
-    def __init__(self, api_key: str, timeout: float = 10.0, max_retries: int = 2, backoff_base_seconds: float = 0.25) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str = API_BASE_URL,
+        timeout: float = 10.0,
+        max_retries: int = 2,
+        backoff_base_seconds: float = 0.25,
+    ) -> None:
         self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_base_seconds = backoff_base_seconds
@@ -50,7 +58,7 @@ class SteamStoreClient:
         return self._get_json(GET_APP_LIST_PATH, params)
 
     def _get_json(self, path: str, params: dict[str, str | int]) -> dict[str, Any]:
-        url = f"{API_BASE_URL}{path}?{urlencode(params)}"
+        url = f"{self.base_url}{path}?{urlencode(params)}"
         for attempt in range(self.max_retries + 1):
             request = Request(url, headers={"Accept": "application/json", "User-Agent": USER_AGENT}, method="GET")
             try:

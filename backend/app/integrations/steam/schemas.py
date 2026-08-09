@@ -25,3 +25,15 @@ class SteamSyncResult(BaseModel):
     price_data_available: bool = False
     offers_ingested: int = 0
     price_snapshots_created: int = 0
+
+
+class SteamPriceRead(BaseModel):
+    provider: str = "steam"
+    appid: int
+    currency: str
+    original_price: str | None = None
+    current_price: str
+    discount_percent: int
+    price_source: str = "store_appdetails"
+    price_source_class: str = "undocumented_public"
+    is_free: bool = False

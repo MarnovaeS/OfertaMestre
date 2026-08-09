@@ -6,10 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.exceptions.domain import DomainNotFoundError
+from app.ingestion.contracts import ExternalOfferInput, IngestionResult
+from app.ingestion.service import ingest_external_offer
 from app.integrations.steam import PROVIDER, STORE_SLUG
 from app.integrations.steam.client import SteamStoreClient
-from app.integrations.steam.exceptions import SteamConfigurationError
-from app.integrations.steam.schemas import SteamAppRead, SteamStatusResponse, SteamSyncResult
+from app.integrations.steam.exceptions import SteamConfigurationError, SteamPriceDisabledError
+from app.integrations.steam.price_client import SteamPrice, SteamStorePriceClient
+from app.integrations.steam.schemas import SteamAppRead, SteamPriceRead, SteamStatusResponse, SteamSyncResult
 from app.models.provider_catalog_item import ProviderCatalogItem
 from app.models.provider_sync_state import ProviderSyncState
 from app.models.store import Store
@@ -39,6 +42,58 @@ def list_apps(
         include_dlc=include_dlc,
     )
     return [_to_app_read(item) for item in _response_apps(payload)]
+
+
+def get_app_price(appid: int, *, client: SteamStorePriceClient | None = None) -> SteamPriceRead:
+    price = _get_price(appid, client=client)
+    return _price_read(price)
+
+
+def ingest_app_offer(
+    db: Session,
+    appid: int,
+    *,
+    client: SteamStorePriceClient | None = None,
+) -> IngestionResult:
+    _require_store(db)
+    catalog_item = db.scalars(
+        select(ProviderCatalogItem).where(
+            ProviderCatalogItem.provider == PROVIDER,
+            ProviderCatalogItem.external_id == str(appid),
+        )
+    ).first()
+    if catalog_item is None:
+        raise DomainNotFoundError("Steam catalog item not found")
+
+    price = _get_price(appid, client=client)
+    metadata = dict(catalog_item.metadata_json or {})
+    metadata.update(
+        {
+            "price_data_available": True,
+            "price_source": price.price_source,
+            "price_source_class": price.price_source_class,
+            "currency": price.currency,
+            "discount_percent": price.discount_percent,
+        }
+    )
+    catalog_item.metadata_json = metadata
+    db.flush()
+
+    payload = ExternalOfferInput(
+        source=PROVIDER,
+        external_id=str(appid),
+        store_slug=STORE_SLUG,
+        title=catalog_item.name,
+        product_name=catalog_item.name,
+        url=f"https://store.steampowered.com/app/{appid}",
+        current_price=price.current_price,
+        original_price=price.original_price,
+        shipping_price=None,
+        currency=price.currency,
+        is_available=True,
+        is_free_shipping=False,
+    )
+    return ingest_external_offer(db, payload)
 
 
 def sync_catalog(
@@ -128,10 +183,36 @@ def sync_catalog(
     )
 
 
+def _build_price_client() -> SteamStorePriceClient:
+    if not settings.steam_appdetails_enabled:
+        raise SteamPriceDisabledError("Steam appdetails price enrichment is disabled")
+    return SteamStorePriceClient(base_url=settings.steam_store_base_url)
+
+
+def _get_price(appid: int, *, client: SteamStorePriceClient | None = None) -> SteamPrice:
+    if not settings.steam_appdetails_enabled:
+        raise SteamPriceDisabledError("Steam appdetails price enrichment is disabled")
+    price_client = client or _build_price_client()
+    return price_client.get_price(appid, country_code=settings.steam_country_code)
+
+
+def _price_read(price: SteamPrice) -> SteamPriceRead:
+    return SteamPriceRead(
+        appid=price.appid,
+        currency=price.currency,
+        original_price=str(price.original_price) if price.original_price is not None else None,
+        current_price=str(price.current_price),
+        discount_percent=price.discount_percent,
+        price_source=price.price_source,
+        price_source_class=price.price_source_class,
+        is_free=price.is_free,
+    )
+
+
 def _build_client() -> SteamStoreClient:
     if not settings.steam_web_api_key:
         raise SteamConfigurationError("STEAM_WEB_API_KEY is not configured")
-    return SteamStoreClient(settings.steam_web_api_key)
+    return SteamStoreClient(settings.steam_web_api_key, base_url=settings.steam_web_api_base_url)
 
 
 def _store_exists(db: Session) -> bool:

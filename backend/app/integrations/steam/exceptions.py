@@ -26,3 +26,7 @@ class SteamRateLimitError(SteamApiError):
 
 class SteamServerError(SteamApiError):
     pass
+
+
+class SteamPriceDisabledError(SteamIntegrationError):
+    pass
