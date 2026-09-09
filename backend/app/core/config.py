@@ -1,4 +1,4 @@
-﻿from functools import cached_property
+from functools import cached_property
 
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     mercadolivre_client_secret: str | None = None
     mercadolivre_redirect_uri: str | None = None
     oauth_token_encryption_key: str | None = None
+    steam_web_api_key: str | None = None
+    steam_web_api_base_url: str = "https://api.steampowered.com"
+    steam_store_base_url: str = "https://store.steampowered.com"
+    steam_appdetails_enabled: bool = False
+    steam_country_code: str = "br"
+    steam_price_cache_ttl_seconds: int = Field(default=300, ge=1, le=3600)
+    steam_price_cache_max_entries: int = Field(default=1000, ge=1, le=10000)
 
     @cached_property
     def cors_origins(self) -> list[str]:
@@ -33,6 +40,7 @@ class Settings(BaseSettings):
             "change-me-in-production",
             "test-secret",
             "dev-only-secret-key-change-before-production",
+            "replace-with-a-random-secret-of-at-least-32-characters",
         }
         if value in blocked_values:
             raise ValueError("SECRET_KEY must be changed to a strong random value")

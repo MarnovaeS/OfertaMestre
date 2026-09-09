@@ -1,4 +1,4 @@
-﻿# Dominio Comercial
+# Dominio Comercial
 
 Este documento descreve a fundacao de dominio criada na Sprint 0.2 e consumida pela ingestao da Sprint 0.3.
 
@@ -189,6 +189,8 @@ Campos principais:
 - `price`
 - `original_price`
 - `shipping_price`
+- `price_source`
+- `price_source_class`
 - `captured_at`
 
 Regras:
@@ -196,7 +198,7 @@ Regras:
 - Snapshots antigos nao devem ser atualizados.
 - Cada oferta tem seu proprio historico.
 - Consultas de historico sao ordenadas por `captured_at`.
-- A ingestao evita snapshot duplicado quando os precos nao mudaram.
+- A ingestao evita snapshot duplicado quando preco, frete e proveniencia nao mudaram.
 
 ## Fora do Escopo
 

@@ -1,4 +1,4 @@
-﻿# Arquitetura
+# Arquitetura
 
 ## Visao Geral
 
@@ -115,3 +115,27 @@ docs/
 - Endpoint de ingestao e interno e autenticado.
 - Roles/permissoes ficam fora da Sprint 0.3.
 - Scrapers, IA, filas, notificacoes e dashboard real continuam fora do escopo.
+
+
+## Provider Foundation
+
+A Sprint 2.1 adiciona `app/providers` como camada leve para fontes externas. Ela define contratos de `Provider`, `CatalogProvider` e `OfferProvider` sem persistir ofertas diretamente.
+
+Fluxo esperado para ofertas com preco real:
+
+```text
+Provider externo -> normalizador/adaptador -> ExternalOfferInput -> IngestionService
+```
+
+Fluxos atuais da Steam:
+
+```text
+Steam GetAppList -> Catalog Discovery -> ProviderCatalogItem / ProviderSyncState
+ProviderCatalogItem -> Steam appdetails -> ExternalOfferInput -> IngestionService
+```
+
+`ProviderCatalogItem` registra existencia e sinais de alteracao de catalogo. `ProviderSyncState` guarda cursor incremental por provider. Nenhum desses modelos armazena segredo ou preco inventado.
+
+A fonte oficial Steamworks continua limitada a catalogo. A Sprint 2.1B adiciona enriquecimento experimental de preco via endpoint publico nao documentado `appdetails`, isolado por feature flag (`STEAM_APPDETAILS_ENABLED`) e identificado com `price_source=store_appdetails` e `price_source_class=undocumented_public`.
+
+Somente quando ha preco real validado a Steam cria `ExternalOfferInput` e reutiliza a camada generica para persistir `Product`, `ProductOffer` e `PriceSnapshot`. Mercado Livre permanece congelado aguardando resolucao externa de acesso.

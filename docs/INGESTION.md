@@ -1,4 +1,4 @@
-﻿# Ingestao
+# Ingestao
 
 A Sprint 0.3 cria a fundacao generica de ingestao para ofertas externas futuras. Ela nao implementa coletores reais, scraping, automacao de browser, filas ou integracoes comerciais com marketplaces. A Sprint 1.0 adiciona OAuth Mercado Livre em modulo separado, sem alterar o contrato de ingestao.
 
@@ -43,6 +43,8 @@ O endpoint interno recebe `ExternalOfferInput` com os campos principais:
 - `is_prime`
 - `installment_count`
 - `installment_value`
+- `price_source`
+- `price_source_class`
 - `captured_at`
 
 Precos negativos sao rejeitados pelo schema antes da persistencia.
@@ -96,9 +98,11 @@ Ingestoes seguintes criam snapshot somente quando houver mudanca em:
 
 - `current_price`;
 - `original_price`;
-- `shipping_price`.
+- `shipping_price`;
+- `price_source`;
+- `price_source_class`.
 
-Se os precos forem identicos ao snapshot mais recente, nenhum snapshot duplicado e criado.
+Se preco, frete e proveniencia forem identicos ao snapshot mais recente, nenhum snapshot duplicado e criado.
 
 ## Transacao
 
@@ -139,3 +143,22 @@ Este endpoint exige JWT e existe para collectors futuros. Ele nao e uma API publ
 - Nao ha filas, workers, agendamento, Redis ou Celery.
 - Reconciliacao manual/assistida entre ofertas e produtos fica para sprint futura.
 - Nao ha coletor real ou integracao com lojas.
+
+
+## Catalog Discovery vs Offer Ingestion
+
+A Sprint 2.1 separa discovery de catalogo de ingestao de oferta.
+
+Catalog Discovery significa que sabemos que um produto/app existe e temos identificadores ou sinais de alteracao. Offer Ingestion exige preco real e continua usando `ExternalOfferInput`.
+
+Steam entra primeiro como Catalog Discovery:
+
+```text
+IStoreService/GetAppList -> ProviderCatalogItem -> ProviderSyncState
+```
+
+Como `GetAppList` nao retorna preco atual, o sync de catalogo Steam nao cria `ProductOffer` ou `PriceSnapshot`. `price_change_number` alterado significa apenas que o preco pode ter mudado.
+
+A Sprint 2.1B adiciona uma etapa separada e experimental de enriquecimento via Steam Store `appdetails`. Quando `STEAM_APPDETAILS_ENABLED=true` e ha `price_overview` valido, o provider monta `ExternalOfferInput` com `store_slug=steam`, `external_id={appid}`, URL `https://store.steampowered.com/app/{appid}` e preco real validado. A persistencia continua centralizada no `IngestionService`.
+
+Se `appdetails` nao trouxer preco e nao provar que o app e gratuito (`is_free=true`), a Steam nao cria oferta nem snapshot. Preco desconhecido nao vira `0.00`.

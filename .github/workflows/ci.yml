@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -10,6 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/backend
+      DATABASE_URL: postgresql+psycopg://ofertamestre:ci-database-password@localhost:5432/ofertamestre_test
+      SECRET_KEY: ci-only-secret-key-with-at-least-32-characters
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ofertamestre_test
+          POSTGRES_USER: ofertamestre
+          POSTGRES_PASSWORD: ci-database-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ofertamestre -d ofertamestre_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -18,10 +34,20 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
+      - name: Compile Python
+        run: python -m compileall app alembic
+      - name: Apply migrations
+        run: python -m alembic upgrade head
+      - name: Check migration drift
+        run: python -m alembic check
+      - name: Validate OpenAPI
+        run: python -c "from app.main import app; schema=app.openapi(); assert schema['openapi'].startswith('3.'); assert schema['paths']; print(len(schema['paths']))"
       - name: Run tests
-        run: pytest
+        run: python -m pytest
 
   frontend:
     runs-on: ubuntu-latest
@@ -33,9 +59,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
       - name: Build
         run: npm run build
 
-
+  docker:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      POSTGRES_DB: ofertamestre
+      POSTGRES_USER: ofertamestre
+      POSTGRES_PASSWORD: ci-docker-database-password
+      DATABASE_URL: postgresql+psycopg://ofertamestre:ci-docker-database-password@db:5432/ofertamestre
+      SECRET_KEY: ci-docker-secret-key-with-at-least-32-characters
+      BACKEND_CORS_ORIGINS: http://localhost:5173
+      VITE_API_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack
+        run: docker compose up --build --wait
+      - name: Check health
+        run: |
+          curl --fail --silent --show-error http://localhost:8000/health
+          curl --fail --silent --show-error http://localhost:5173/
+      - name: Stop stack
+        if: always()
+        run: docker compose down --volumes

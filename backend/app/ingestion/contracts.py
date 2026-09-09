@@ -1,4 +1,4 @@
-﻿from datetime import datetime
+from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -24,6 +24,8 @@ class ExternalOfferInput(BaseModel):
     original_price: Decimal | None = Field(default=None, ge=0)
     shipping_price: Decimal | None = Field(default=None, ge=0)
     currency: str = Field(default="BRL", min_length=3, max_length=3)
+    price_source: str | None = Field(default=None, min_length=1, max_length=100)
+    price_source_class: str | None = Field(default=None, min_length=1, max_length=100)
     is_available: bool = True
     is_free_shipping: bool = False
     is_prime: bool | None = None

@@ -1,4 +1,4 @@
-﻿from typing import Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import ValidationError
@@ -8,7 +8,13 @@ from app.api.deps import get_current_user
 from app.database.session import get_db
 from app.integrations.mercadolivre.exceptions import MercadoLivreConfigurationError, MercadoLivreOAuthError
 from app.integrations.mercadolivre.schemas import MercadoLivreAuthorizeResponse, MercadoLivreStatusResponse
-from app.integrations.mercadolivre.service import create_authorization, disconnect, get_status, handle_callback
+from app.integrations.mercadolivre.service import (
+    create_authorization,
+    disconnect,
+    get_status,
+    handle_authorization_denied,
+    handle_callback,
+)
 from app.models.user import User
 
 router = APIRouter()
@@ -45,10 +51,23 @@ def disconnect_mercadolivre(
 
 @callback_router.get("/oauth/mercadolivre/callback")
 def mercadolivre_callback(
-    code: str,
-    state: str,
     db: Annotated[Session, Depends(get_db)],
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
 ) -> dict[str, str]:
+    if error == "access_denied":
+        if state is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mercado Livre authorization was denied")
+        try:
+            handle_authorization_denied(db, state)
+        except MercadoLivreOAuthError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=exc.message) from exc
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mercado Livre authorization was denied")
+    if error is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mercado Livre OAuth returned an error")
+    if code is None or state is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mercado Livre OAuth callback is incomplete")
     try:
         return handle_callback(db, code, state)
     except MercadoLivreConfigurationError as exc:
