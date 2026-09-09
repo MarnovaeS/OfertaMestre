@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
+    amazon,
     auth,
     brands,
     categories,
@@ -11,6 +12,7 @@ from app.api.routes import (
     mercadolivre,
     offers,
     products,
+    providers,
     sellers,
     steam,
     stores,
@@ -42,9 +44,11 @@ def create_app() -> FastAPI:
     app.include_router(sellers.router, prefix="/api/v1/sellers", tags=["sellers"])
     app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
     app.include_router(offers.router, prefix="/api/v1/offers", tags=["offers"])
+    app.include_router(providers.router, prefix="/api/v1/integrations/providers", tags=["providers"])
     app.include_router(mercadolivre.router, prefix="/api/v1/integrations/mercadolivre", tags=["mercadolivre"])
     app.include_router(mercadolivre.callback_router, tags=["mercadolivre"])
     app.include_router(steam.router, prefix="/api/v1/integrations/steam", tags=["steam"])
+    app.include_router(amazon.router, prefix="/api/v1/integrations/amazon", tags=["amazon"])
     app.include_router(
         internal_ingestion.router,
         prefix="/api/v1/internal/ingestion",

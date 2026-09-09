@@ -30,6 +30,25 @@ export type SteamSyncResult = {
   catalog_items_updated: number;
 };
 
+export type ProviderIntegrationStatus = {
+  provider: string;
+  name: string;
+  store_slug: string | null;
+  channel: string;
+  state:
+    | "connected"
+    | "configured"
+    | "credentials_required"
+    | "approval_required"
+    | "partnership_required";
+  configured: boolean;
+  connected: boolean;
+  store_exists: boolean | null;
+  capabilities: string[];
+  note: string;
+  setup_url: string | null;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -104,6 +123,12 @@ export const api = {
     request<SteamSyncResult>(
       "/api/v1/integrations/steam/sync?max_results=100",
       { method: "POST" },
+      token,
+    ),
+  providers: (token: string) =>
+    request<ProviderIntegrationStatus[]>(
+      "/api/v1/integrations/providers",
+      {},
       token,
     ),
 };

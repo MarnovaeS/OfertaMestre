@@ -6,7 +6,7 @@ from app.services._persistence import commit_refresh
 
 INITIAL_STORES = [
     ("Amazon Brasil", "amazon-brasil", "https://www.amazon.com.br"),
-    ("Mercado Livre", "mercado-livre", "https://www.mercadolivre.com.br"),
+    ("Mercado Livre", "mercadolivre", "https://www.mercadolivre.com.br"),
     ("Magazine Luiza", "magazine-luiza", "https://www.magazineluiza.com.br"),
     ("KaBuM!", "kabum", "https://www.kabum.com.br"),
     ("Casas Bahia", "casas-bahia", "https://www.casasbahia.com.br"),
@@ -15,6 +15,8 @@ INITIAL_STORES = [
     ("Steam", "steam", settings.steam_store_base_url),
     ("Acer", "acer", "https://www.acer.com/br-pt"),
     ("Nike", "nike", "https://www.nike.com.br"),
+    ("Adidas", "adidas", "https://www.adidas.com.br"),
+    ("Havan", "havan", "https://www.havan.com.br"),
     ("Netshoes", "netshoes", "https://www.netshoes.com.br"),
     ("Centauro", "centauro", "https://www.centauro.com.br"),
     ("Dafiti", "dafiti", "https://www.dafiti.com.br"),

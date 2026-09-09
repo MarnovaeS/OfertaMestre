@@ -23,6 +23,17 @@ class Settings(BaseSettings):
     steam_country_code: str = "br"
     steam_price_cache_ttl_seconds: int = Field(default=300, ge=1, le=3600)
     steam_price_cache_max_entries: int = Field(default=1000, ge=1, le=10000)
+    amazon_creators_client_id: str | None = None
+    amazon_creators_client_secret: str | None = None
+    amazon_creators_partner_tag: str | None = None
+    amazon_creators_marketplace: str = "www.amazon.com.br"
+    amazon_creators_api_base_url: str = "https://creatorsapi.amazon"
+    amazon_creators_token_url: str = "https://api.amazon.com/auth/o2/token"
+    awin_publisher_id: str | None = None
+    awin_api_token: str | None = None
+    magalu_client_id: str | None = None
+    magalu_client_secret: str | None = None
+    magalu_redirect_uri: str | None = None
 
     @cached_property
     def cors_origins(self) -> list[str]:

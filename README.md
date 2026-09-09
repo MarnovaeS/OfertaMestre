@@ -207,3 +207,11 @@ npm run build
 ## Branch Principal
 
 A branch principal do projeto e `main`.
+
+## Catalogo de provedores
+
+- `GET /api/v1/integrations/providers`
+- `GET /api/v1/integrations/amazon/status`
+- `GET /api/v1/integrations/amazon/search?keywords=notebook&item_count=10`
+
+O registro informa o estado real de cada canal sem expor credenciais. Consulte `docs/PROVIDERS.md` para os requisitos da Amazon Creators API e os provedores que ainda dependem de aprovacao ou parceria.

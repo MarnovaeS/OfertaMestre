@@ -8,6 +8,7 @@ import {
 import {
   Activity,
   Database,
+  ExternalLink,
   LayoutDashboard,
   Link2,
   LoaderCircle,
@@ -24,6 +25,7 @@ import {
   api,
   type DashboardSummary,
   type MercadoLivreStatus,
+  type ProviderIntegrationStatus,
   type SteamStatus,
   type User,
 } from "./api";
@@ -303,17 +305,24 @@ function Dashboard({ token }: { token: string }) {
 function Integrations({ token }: { token: string }) {
   const [ml, setMl] = useState<MercadoLivreStatus | null>(null);
   const [steam, setSteam] = useState<SteamStatus | null>(null);
+  const [providers, setProviders] = useState<ProviderIntegrationStatus[]>([]);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const refresh = useCallback(async () => {
     setNotice("");
-    const [a, b] = await Promise.allSettled([
+    const [a, b, c] = await Promise.allSettled([
       api.mercadoLivreStatus(token),
       api.steamStatus(token),
+      api.providers(token),
     ]);
     if (a.status === "fulfilled") setMl(a.value);
     if (b.status === "fulfilled") setSteam(b.value);
-    if (a.status === "rejected" || b.status === "rejected")
+    if (c.status === "fulfilled") setProviders(c.value);
+    if (
+      a.status === "rejected" ||
+      b.status === "rejected" ||
+      c.status === "rejected"
+    )
       setNotice("Uma integracao nao respondeu.");
   }, [token]);
   useEffect(() => {
@@ -424,6 +433,36 @@ function Integrations({ token }: { token: string }) {
           </button>
         }
       />
+      {providers
+        .filter(
+          ({ provider }) => !["mercadolivre", "steam"].includes(provider),
+        )
+        .map((provider) => (
+          <Integration
+            key={provider.provider}
+            name={provider.name}
+            status={providerStateLabel(provider.state)}
+            active={
+              provider.state === "connected" || provider.state === "configured"
+            }
+            detail={`${provider.channel}. ${provider.note}`}
+            action={
+              provider.setup_url ? (
+                <a
+                  className="secondary-button"
+                  href={provider.setup_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink />
+                  Acessar canal
+                </a>
+              ) : (
+                <span className="provider-pending">Sem canal publico</span>
+              )
+            }
+          />
+        ))}
     </section>
   );
 }
@@ -540,4 +579,14 @@ function initials(name: string) {
     .map((part) => part[0])
     .join("")
     .toUpperCase();
+}
+
+function providerStateLabel(state: ProviderIntegrationStatus["state"]) {
+  return {
+    connected: "Conectado",
+    configured: "Configurado",
+    credentials_required: "Credenciais necessarias",
+    approval_required: "Aprovacao necessaria",
+    partnership_required: "Parceria necessaria",
+  }[state];
 }

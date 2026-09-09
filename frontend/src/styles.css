@@ -542,3 +542,11 @@ input:focus {
     grid-column: 2;
   }
 }
+
+.integration-action a {
+  text-decoration: none;
+}
+.provider-pending {
+  color: #69766f;
+  font-size: 0.78rem;
+}
