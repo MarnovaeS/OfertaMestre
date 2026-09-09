@@ -746,17 +746,6 @@ def test_confirmed_free_app_is_catalog_only(client, monkeypatch):
         assert item.metadata_json["is_free"] is True
         assert item.metadata_json["price_source"] == "store_appdetails"
 
-def test_mercadolivre_code_is_not_modified():
-    result = subprocess.run(
-        ["git", "diff", "--name-only", "HEAD", "--", "backend/app/integrations/mercadolivre", "backend/app/api/routes/mercadolivre.py"],
-        cwd=Path(__file__).parents[2],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-
-    assert result.stdout.strip() == ""
-
 
 def _load_provider_migration():
     migration_path = Path(__file__).parents[1] / "alembic" / "versions" / "202608090001_create_provider_foundation.py"
@@ -797,3 +786,94 @@ class _patched_op_bind:
 
     def __exit__(self, exc_type, exc, traceback):
         self.migration.op.get_bind = self.original
+
+def test_appdetails_cache_expires(monkeypatch):
+    from app.integrations.steam import price_client as price_module
+
+    calls = {"count": 0}
+    clock = {"now": 0.0}
+
+    def ok(request, timeout):
+        calls["count"] += 1
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def read(self):
+                return json.dumps(price_payload()).encode()
+
+        return Response()
+
+    monkeypatch.setattr(price_module, "urlopen", ok)
+    monkeypatch.setattr(price_module.time, "monotonic", lambda: clock["now"])
+    api_client = SteamStorePriceClient(
+        base_url="https://store.steampowered.com",
+        min_interval_seconds=0,
+        cache_ttl_seconds=5,
+    )
+
+    api_client.get_price(1091500, country_code="br")
+    clock["now"] = 6.0
+    api_client.get_price(1091500, country_code="br")
+
+    assert calls["count"] == 2
+
+
+def test_changed_catalog_item_preserves_price_metadata(client, monkeypatch):
+    headers = auth_headers(client)
+    create_steam_store()
+    with SessionLocal() as db:
+        store = db.query(Store).filter_by(slug="steam").one()
+        db.add(
+            ProviderCatalogItem(
+                provider="steam",
+                store_id=store.id,
+                external_id="70",
+                name="Old Name",
+                last_modified=1,
+                price_change_number=1,
+                metadata_json={
+                    "price_data_available": True,
+                    "price_source": "store_appdetails",
+                    "price_source_class": "undocumented_public",
+                    "is_free": False,
+                },
+            )
+        )
+        db.commit()
+    install_fake_steam_client(
+        monkeypatch,
+        FakeSteamClient(
+            apps=[{"appid": 70, "name": "New Name", "last_modified": 2, "price_change_number": 2}]
+        ),
+    )
+
+    response = client.post("/api/v1/integrations/steam/sync?max_results=1", headers=headers)
+
+    assert response.status_code == 200
+    with SessionLocal() as db:
+        metadata = db.query(ProviderCatalogItem).filter_by(provider="steam", external_id="70").one().metadata_json
+    assert metadata["price_data_available"] is False
+    assert metadata["price_source"] == "store_appdetails"
+    assert metadata["price_source_class"] == "undocumented_public"
+    assert metadata["is_free"] is False
+
+
+def test_appdetails_cache_is_bounded(monkeypatch):
+    api_client = SteamStorePriceClient(
+        base_url="https://store.steampowered.com",
+        min_interval_seconds=0,
+        cache_max_entries=2,
+    )
+    monkeypatch.setattr(api_client, "_get_appdetails", lambda appid, country: price_payload(appid))
+
+    api_client.get_price(1, country_code="br")
+    api_client.get_price(2, country_code="br")
+    api_client.get_price(3, country_code="br")
+
+    assert len(api_client._cache) == 2
+    assert (1, "br") not in api_client._cache

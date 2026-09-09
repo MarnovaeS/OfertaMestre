@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -83,6 +83,16 @@ def handle_callback(
         raise
 
     return {"status": "connected", "provider": PROVIDER}
+
+
+def handle_authorization_denied(db: Session, state: str) -> None:
+    oauth_state = _get_valid_state(db, state)
+    try:
+        oauth_state.consumed = True
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def get_status(db: Session, user: User) -> MercadoLivreStatusResponse:

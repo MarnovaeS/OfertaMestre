@@ -1,4 +1,4 @@
-﻿from datetime import timedelta
+from datetime import timedelta
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -288,3 +288,31 @@ def test_oauth_flow_does_not_log_secrets(client, monkeypatch, caplog):
     assert "ml-client-secret" not in caplog.text
     assert "access-token-123" not in caplog.text
     assert "refresh-token-123" not in caplog.text
+
+
+def test_access_denied_consumes_state_and_cannot_be_reused(client):
+    _, params = start_authorization(client)
+
+    first = client.get(f"/oauth/mercadolivre/callback?error=access_denied&state={params['state']}")
+    second = client.get(f"/oauth/mercadolivre/callback?error=access_denied&state={params['state']}")
+
+    assert first.status_code == 400
+    assert first.json()["detail"] == "Mercado Livre authorization was denied"
+    assert second.status_code == 400
+    assert second.json()["detail"] == "Invalid or expired Mercado Livre OAuth state"
+    with SessionLocal() as db:
+        assert db.query(OAuthState).one().consumed is True
+
+
+def test_access_denied_without_state_is_controlled(client):
+    response = client.get("/oauth/mercadolivre/callback?error=access_denied")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre authorization was denied"
+
+
+def test_incomplete_callback_is_controlled(client):
+    response = client.get("/oauth/mercadolivre/callback")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Mercado Livre OAuth callback is incomplete"

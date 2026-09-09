@@ -52,6 +52,8 @@ class SteamStorePriceClient:
         max_retries: int = 2,
         backoff_base_seconds: float = 0.25,
         min_interval_seconds: float = 0.2,
+        cache_ttl_seconds: float = 300.0,
+        cache_max_entries: int = 1000,
         circuit_breaker_failures: int = 3,
         circuit_breaker_cooldown_seconds: float = 60.0,
     ) -> None:
@@ -60,9 +62,11 @@ class SteamStorePriceClient:
         self.max_retries = max_retries
         self.backoff_base_seconds = backoff_base_seconds
         self.min_interval_seconds = min_interval_seconds
+        self.cache_ttl_seconds = cache_ttl_seconds
+        self.cache_max_entries = cache_max_entries
         self.circuit_breaker_failures = circuit_breaker_failures
         self.circuit_breaker_cooldown_seconds = circuit_breaker_cooldown_seconds
-        self._cache: dict[tuple[int, str], SteamPrice] = {}
+        self._cache: dict[tuple[int, str], tuple[float, SteamPrice]] = {}
         self._last_request_at = 0.0
         self._failure_count = 0
         self._degraded_until = 0.0
@@ -72,14 +76,19 @@ class SteamStorePriceClient:
         country = country_code.lower()
         cache_key = (appid, country)
         with self._state_lock:
-            if cache_key in self._cache:
-                return self._cache[cache_key]
+            now = time.monotonic()
+            cached = self._cache.get(cache_key)
+            if cached is not None and now - cached[0] < self.cache_ttl_seconds:
+                return cached[1]
+            self._cache.pop(cache_key, None)
             if self._is_degraded():
                 raise SteamPriceUnavailableError("Steam appdetails price provider is degraded")
 
             payload = self._get_appdetails(appid, country)
             price = parse_appdetails_price(appid, payload, country_code=country)
-            self._cache[cache_key] = price
+            if len(self._cache) >= self.cache_max_entries:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[cache_key] = (time.monotonic(), price)
             self._failure_count = 0
             return price
 

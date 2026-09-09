@@ -1,4 +1,4 @@
-﻿# Architecture Decisions
+# Architecture Decisions
 
 ## Sprint 0
 
@@ -48,3 +48,12 @@
 - Queues, Redis, Celery and schedulers are intentionally deferred.
 - AI scoring is intentionally deferred.
 - Watchlists, alerts and notification delivery are intentionally deferred to later sprints.
+## Stabilization Sprint
+
+- Keep the application as a modular monolith and avoid introducing queues or services before operational demand exists.
+- Make the SQLAlchemy model metadata match the versioned Alembic constraints so migration drift is detected in CI.
+- Bound the shared Steam price cache by TTL and maximum entries to avoid stale prices and unbounded process memory.
+- Preserve price provenance metadata when catalog discovery refreshes the same Steam app.
+- Treat Mercado Livre authorization denial as an explicit transactional OAuth outcome that consumes a valid state.
+- Store frontend bearer tokens in session storage so closing the browser session clears local credentials.
+- Validate PostgreSQL migrations, OpenAPI generation and Docker health in CI in addition to unit tests and frontend build.

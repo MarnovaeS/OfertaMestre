@@ -1,10 +1,10 @@
-﻿# OfertaMestre
+# OfertaMestre
 
 OfertaMestre e uma plataforma de inteligencia para promocoes. A base atual entrega monorepo, backend FastAPI, frontend React/Vite, PostgreSQL, Alembic, autenticacao JWT, Docker Compose, CI, fundacao do dominio comercial, ingestao interna generica e fundacao OAuth do Mercado Livre.
 
 ## Estado Atual
 
-Esta base corresponde a Sprint 0, Sprint 0.1, Sprint 0.2, Sprint 0.3, Sprint 1.0 e fundacao Steam da Sprint 2.1/2.1B.
+Esta base inclui as fundacoes das Sprints 0 a 2.1B e a sprint de estabilizacao tecnica: backend, dominio, ingestao, OAuth Mercado Livre, provider Steam e frontend operacional.
 
 Incluido:
 
@@ -14,13 +14,13 @@ Incluido:
 - Alembic.
 - Autenticacao JWT no backend.
 - Frontend React + Vite + TypeScript.
-- Dashboard inicial com metricas zeradas.
+- Frontend operacional com cadastro, login, sessao em memoria do navegador, dashboard e gerenciamento das integracoes Mercado Livre e Steam.
 - Dominio comercial administrativo: marcas, categorias, lojas, vendedores, produtos, ofertas e snapshots de preco.
 - Ingestao interna generica para ofertas externas futuras.
 - Fundacao OAuth 2.0 do Mercado Livre com state, PKCE, callback, status, desconexao e refresh de token.
 - Provider Steam com catalog discovery oficial e enriquecimento experimental de preco via `appdetails` atras de feature flag.
 - GitHub Actions.
-- Testes automatizados basicos.
+- CI com PostgreSQL, migrations, verificacao de drift Alembic, OpenAPI, testes, auditoria do frontend e smoke test Docker.
 
 Nao incluido ainda:
 
@@ -96,6 +96,8 @@ Variaveis opcionais para Steam:
 - `STEAM_STORE_BASE_URL`
 - `STEAM_APPDETAILS_ENABLED`
 - `STEAM_COUNTRY_CODE`
+- `STEAM_PRICE_CACHE_TTL_SECONDS`
+- `STEAM_PRICE_CACHE_MAX_ENTRIES`
 
 Variaveis opcionais para OAuth Mercado Livre:
 
@@ -194,7 +196,7 @@ cd backend
 python -m pytest
 ```
 
-Frontend:
+Frontend (cadastro, login, dashboard e integracoes):
 
 ```bash
 cd frontend

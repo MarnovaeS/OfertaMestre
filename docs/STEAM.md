@@ -49,6 +49,8 @@ Configuracoes:
 STEAM_STORE_BASE_URL=https://store.steampowered.com
 STEAM_APPDETAILS_ENABLED=false
 STEAM_COUNTRY_CODE=br
+STEAM_PRICE_CACHE_TTL_SECONDS=300
+STEAM_PRICE_CACHE_MAX_ENTRIES=1000
 ```
 
 Com `STEAM_APPDETAILS_ENABLED=false`, o catalogo Steam continua funcionando e apenas os endpoints de preco/ingestao retornam indisponibilidade controlada.
@@ -109,7 +111,7 @@ O client de `appdetails` possui:
 - retry limitado para 429 e 5xx;
 - respeito a `Retry-After` quando presente;
 - backoff exponencial com jitter;
-- cache em memoria por `appid + country` dentro da instancia do client;
+- cache compartilhado em memoria por `appid + country`, com TTL e limite de entradas configuraveis;
 - rate limit local simples;
 - circuit breaker simples apos falhas repetidas.
 
@@ -148,6 +150,7 @@ A funcao `has_app_changed(previous, current)` considera alteracao quando muda:
 - `name`
 - `last_modified`
 - `price_change_number`
+- metadados de preco ja persistidos, preservados durante novos syncs de catalogo
 
 Mudanca em `price_change_number` significa apenas: **preco possivelmente alterado**. A confirmacao depende do enriquecimento de preco.
 

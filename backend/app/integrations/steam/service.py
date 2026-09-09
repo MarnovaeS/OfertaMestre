@@ -164,7 +164,9 @@ def sync_catalog(
             row.name = app.name
             row.last_modified = app.last_modified
             row.price_change_number = app.price_change_number
-            row.metadata_json = {"price_data_available": False}
+            metadata = dict(row.metadata_json or {})
+            metadata["price_data_available"] = False
+            row.metadata_json = metadata
             row.last_seen_at = datetime.now(UTC)
             updated += 1
         else:
@@ -193,14 +195,26 @@ def sync_catalog(
 
 
 @lru_cache(maxsize=4)
-def _shared_price_client(base_url: str) -> SteamStorePriceClient:
-    return SteamStorePriceClient(base_url=base_url)
+def _shared_price_client(
+    base_url: str,
+    cache_ttl_seconds: int,
+    cache_max_entries: int,
+) -> SteamStorePriceClient:
+    return SteamStorePriceClient(
+        base_url=base_url,
+        cache_ttl_seconds=cache_ttl_seconds,
+        cache_max_entries=cache_max_entries,
+    )
 
 
 def _build_price_client() -> SteamStorePriceClient:
     if not settings.steam_appdetails_enabled:
         raise SteamPriceDisabledError("Steam appdetails price enrichment is disabled")
-    return _shared_price_client(settings.steam_store_base_url)
+    return _shared_price_client(
+        settings.steam_store_base_url,
+        settings.steam_price_cache_ttl_seconds,
+        settings.steam_price_cache_max_entries,
+    )
 
 
 def _get_price(appid: int, *, client: SteamStorePriceClient | None = None) -> SteamPrice:

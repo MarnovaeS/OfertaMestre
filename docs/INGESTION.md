@@ -43,6 +43,8 @@ O endpoint interno recebe `ExternalOfferInput` com os campos principais:
 - `is_prime`
 - `installment_count`
 - `installment_value`
+- `price_source`
+- `price_source_class`
 - `captured_at`
 
 Precos negativos sao rejeitados pelo schema antes da persistencia.
@@ -96,9 +98,11 @@ Ingestoes seguintes criam snapshot somente quando houver mudanca em:
 
 - `current_price`;
 - `original_price`;
-- `shipping_price`.
+- `shipping_price`;
+- `price_source`;
+- `price_source_class`.
 
-Se os precos forem identicos ao snapshot mais recente, nenhum snapshot duplicado e criado.
+Se preco, frete e proveniencia forem identicos ao snapshot mais recente, nenhum snapshot duplicado e criado.
 
 ## Transacao
 

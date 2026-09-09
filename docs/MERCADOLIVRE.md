@@ -1,4 +1,4 @@
-﻿# Mercado Livre OAuth
+# Mercado Livre OAuth
 
 A Sprint 1.0 implementa somente a fundacao OAuth 2.0 do Mercado Livre. Ela nao implementa scraping, coleta de produtos, coleta de precos, reconciliacao de catalogo ou ingestao automatica de ofertas.
 
@@ -45,7 +45,7 @@ Resposta:
 
 ### `GET /oauth/mercadolivre/callback`
 
-Endpoint publico de callback do provedor. Recebe `code` e `state`, valida o `state`, recupera o PKCE verifier, troca o codigo por tokens, criptografa os tokens e persiste a integracao.
+Endpoint publico de callback do provedor. Recebe `code` e `state`, valida o `state`, recupera o PKCE verifier, troca o codigo por tokens, criptografa os tokens e persiste a integracao. Quando o usuario nega a autorizacao (`error=access_denied`), o state associado e validado e consumido em uma transacao, impedindo reutilizacao sem expor detalhes sensiveis.
 
 Resposta:
 
@@ -112,6 +112,7 @@ Se o refresh falhar por autorizacao revogada, a integracao local e marcada como 
 - O client HTTP tem timeout explicito.
 - Segredos nao sao logados.
 - O callback nunca retorna tokens.
+- O callback rejeita erros do provedor, parametros incompletos e reutilizacao de state com mensagens controladas.
 
 ## Fora do Escopo
 
