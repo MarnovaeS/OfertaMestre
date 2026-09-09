@@ -458,7 +458,12 @@ input:focus {
   .sidebar {
     padding: 20px 12px;
   }
-  .brand div,
+  .sidebar .brand div {
+    display: none;
+  }
+  .sidebar .brand > span {
+    flex: 0 0 38px;
+  }
   .nav-button {
     font-size: 0;
   }
