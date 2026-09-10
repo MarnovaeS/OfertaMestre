@@ -57,4 +57,12 @@ def _configured(provider: str) -> bool:
         "magalu": (settings.magalu_client_id, settings.magalu_client_secret, settings.magalu_redirect_uri),
     }
     values = checks.get(provider)
+    if provider == "awin":
+        publisher_id = settings.awin_publisher_id.strip() if settings.awin_publisher_id else ""
+        return bool(
+            publisher_id.isdigit()
+            and int(publisher_id) > 0
+            and settings.awin_api_token
+            and settings.awin_api_token.strip()
+        )
     return bool(values and all(value and value.strip() for value in values))

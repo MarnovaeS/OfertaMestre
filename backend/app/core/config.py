@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     amazon_creators_token_url: str = "https://api.amazon.com/auth/o2/token"
     awin_publisher_id: str | None = None
     awin_api_token: str | None = None
+    awin_api_base_url: str = "https://api.awin.com"
     magalu_client_id: str | None = None
     magalu_client_secret: str | None = None
     magalu_redirect_uri: str | None = None

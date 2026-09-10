@@ -1,0 +1,1 @@
+"""Awin publisher API integration."""

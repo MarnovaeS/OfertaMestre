@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import (
     amazon,
     auth,
+    awin,
     brands,
     categories,
     dashboard,
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(mercadolivre.callback_router, tags=["mercadolivre"])
     app.include_router(steam.router, prefix="/api/v1/integrations/steam", tags=["steam"])
     app.include_router(amazon.router, prefix="/api/v1/integrations/amazon", tags=["amazon"])
+    app.include_router(awin.router, prefix="/api/v1/integrations/awin", tags=["awin"])
     app.include_router(
         internal_ingestion.router,
         prefix="/api/v1/internal/ingestion",

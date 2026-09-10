@@ -26,7 +26,7 @@ Nao incluido ainda:
 
 - Scrapers.
 - Coleta de produtos, precos ou ofertas do Mercado Livre.
-- Integracoes Amazon ou outras APIs comerciais alem de Mercado Livre OAuth e Steam provider.
+- Ingestao automatica da Amazon, Awin ou outras APIs comerciais.
 - IA.
 - Notificacoes.
 - Watchlist.
@@ -106,6 +106,19 @@ Variaveis opcionais para OAuth Mercado Livre:
 - `MERCADOLIVRE_REDIRECT_URI`
 - `OAUTH_TOKEN_ENCRYPTION_KEY`
 
+Variaveis opcionais para Amazon Creators API:
+
+- `AMAZON_CREATORS_CLIENT_ID`
+- `AMAZON_CREATORS_CLIENT_SECRET`
+- `AMAZON_CREATORS_PARTNER_TAG`
+- `AMAZON_CREATORS_MARKETPLACE`
+
+Variaveis opcionais para Awin Publisher API:
+
+- `AWIN_PUBLISHER_ID`
+- `AWIN_API_TOKEN`
+- `AWIN_API_BASE_URL`
+
 `SECRET_KEY` deve ter pelo menos 32 caracteres e deve ser trocada fora do ambiente local. `OAUTH_TOKEN_ENCRYPTION_KEY` deve ser uma chave Fernet valida gerada explicitamente com `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. O backend nao define valor padrao para `DATABASE_URL` ou `SECRET_KEY`.
 
 ## Como Executar o Backend Localmente
@@ -174,6 +187,11 @@ npm run build
 - `POST /api/v1/integrations/steam/sync`
 - `GET /api/v1/integrations/steam/apps/{appid}/price`
 - `POST /api/v1/integrations/steam/apps/{appid}/ingest`
+- `GET /api/v1/integrations/amazon/status`
+- `GET /api/v1/integrations/amazon/search`
+- `GET /api/v1/integrations/awin/status`
+- `GET /api/v1/integrations/awin/programs`
+- `GET /api/v1/integrations/awin/promotions`
 
 Rotas `GET` de dominio sao publicas. Rotas administrativas `POST`, `PATCH` e `DELETE` exigem JWT. A rota de callback OAuth e publica por necessidade do provedor, mas valida `state` emitido pelo backend.
 
@@ -213,5 +231,8 @@ A branch principal do projeto e `main`.
 - `GET /api/v1/integrations/providers`
 - `GET /api/v1/integrations/amazon/status`
 - `GET /api/v1/integrations/amazon/search?keywords=notebook&item_count=10`
+- `GET /api/v1/integrations/awin/status`
+- `GET /api/v1/integrations/awin/programs?country_code=BR&relationship=joined`
+- `GET /api/v1/integrations/awin/promotions?page=1&page_size=20&membership=joined`
 
-O registro informa o estado real de cada canal sem expor credenciais. Consulte `docs/PROVIDERS.md` para os requisitos da Amazon Creators API e os provedores que ainda dependem de aprovacao ou parceria.
+O registro informa o estado real de cada canal sem expor credenciais. Consulte `docs/PROVIDERS.md` para os requisitos da Amazon Creators API, Awin Publisher API e os provedores que ainda dependem de aprovacao ou parceria.
